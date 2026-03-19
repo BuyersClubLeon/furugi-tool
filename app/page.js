@@ -1,0 +1,563 @@
+"use client";
+
+import { useState, useCallback, useRef } from "react";
+import {
+  Camera, FileText, TrendingUp, Calculator, Shield,
+  MessageCircle, Menu, X, Loader2, Copy, Check,
+  Sparkles, Package, Send, RotateCcw, ImagePlus,
+} from "lucide-react";
+
+/* ── API呼び出し（サーバーサイドプロキシ経由） ── */
+async function callClaude(systemPrompt, userMessage, images = []) {
+  const content = [];
+  for (const img of images) {
+    content.push({
+      type: "image",
+      source: { type: "base64", media_type: img.type, data: img.data },
+    });
+  }
+  content.push({ type: "text", text: userMessage });
+
+  const res = await fetch("/api/chat", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system: systemPrompt,
+      messages: [{ role: "user", content }],
+    }),
+  });
+
+  const data = await res.json();
+  if (data.error) throw new Error(data.error);
+  return data.content?.map((b) => b.text || "").join("\n") || "エラーが発生しました";
+}
+
+/* ── システムプロンプト ── */
+const SYSTEM_BASE = `あなたは100年に1人の確率で現れるカリスマ古着販売者です。
+古着に詳しい人にも、詳しくない人にも伝わる、わかりやすく魅力的で、安心感のある商品説明文を作成してください。
+ハルシネーションは禁止です。入力情報にない内容は断定せず、推測で補わないでください。
+全ての出力は日本語で行うこと。メタ認知をしっかり活用してください。`;
+
+const LISTING_PROMPT = `${SYSTEM_BASE}
+説明文はメルカリでの販売を想定し、スマホで読みやすく、購入理由が伝わる構成にしてください。
+
+出力ルール:
+・タイトルは65文字以内
+・全体は9999文字以内
+・入力情報にないディテール、年代断定、素材断定、製造国断定はしない
+・サイズ欄は必ず入れる（着丈、身幅、肩幅、袖丈の順）
+・肩幅や袖丈が計測できない場合でも項目は消さず「___㎝」のように残す
+
+文章トーン: やわらかい、安心感、押し売り感なし、古着初心者にもわかりやすい
+
+タイトル作成ルール:
+・「年代 or テイスト / ブランド名 / アイテム名 / 特徴 / 色」の順を基本
+・日本語検索とブランド検索の両方を意識
+
+説明文の構成（必ずこの順で出力）:
+1. タイトル
+2. 冒頭の魅力訴求3〜4行（各行は「●」で始める）
+3. 本文（2〜4文、スマホで読みやすい長さ）
+4. サイズ欄（●サイズ：○○ / ●実寸（単位:㎝）着丈○○ / 身幅○○ / 肩幅○○ / 袖丈○○ / ※平置き実寸）
+5. 状態欄（●状態⇒【A〜D】[S]未使用 [A]良好 [B]多少の使用感 [C]ダメージあり [D]大きめのダメージ）
+6. 問い合わせ文
+7. キーワード（日本語中心で8〜12個）
+8. 英語説明（2〜4文）
+
+禁止事項: 「激レア」「絶対おすすめ」「一生モノ」など過剰な煽り表現禁止`;
+
+const ANALYSIS_PROMPT = `${SYSTEM_BASE}
+対象アイテムの詳細な商品分析を行ってください。
+■市場分析: 需要スコア(/100)、予想販売価格帯(メルカリ)、季節トレンド、競合状況
+■商品評価: 希少性(/100)、状態(/100)、トレンド適合(/100)、ブランド価値(/100)
+■出品方式の推奨: 定額出品推奨価格、推奨出品時期、推奨終了時間
+■推奨戦略: 最適出品時期、キーワード提案、撮影アドバイス`;
+
+const AUTH_PROMPT = `${SYSTEM_BASE}
+対象アイテムの真贋判定を行ってください。
+■基本チェック: ブランドタグの縫製、素材タグの位置と形状、ブランドロゴの精度
+■詳細チェック: ステッチの間隔と均一性、糸の品質、ジッパーやボタンの刻印
+■判定結果: 真贋判定（本物の可能性:高/中/低/判定不可）、判定根拠、注意点、年代推定
+写真が不十分な場合は追加で必要な写真を具体的に指示してください。`;
+
+const PROFIT_PROMPT = `${SYSTEM_BASE}
+仕入れ価格をもとにメルカリでの想定利益を計算してください。
+条件: メルカリ手数料10%、送料はユーザー指定値
+出力: 想定売価(最低〜最高)、手数料、送料、想定利益、利益率
+販売シナリオ: 最低限/平均的/好条件の3パターン
+利益率20%以上→おすすめ、10-20%→検討余地、10%未満→要注意`;
+
+const REPLY_PROMPT = `${SYSTEM_BASE}
+メルカリで買い手からの質問に対する返答文を作成してください。
+・購入してもらうのに適切な返答文
+・1000文字以内
+・丁寧で安心感のある文面`;
+
+/* ── カラートークン ── */
+const T = {
+  bg: "#0C0B0F", surface: "#16151B", surfaceAlt: "#1E1D25",
+  border: "#2A2933", borderLight: "#3A394A",
+  text: "#E8E6EF", textMuted: "#9895A5", textDim: "#6B6879",
+  accent: "#C8956C", accentLight: "#DEB48E",
+  success: "#5DB67D", warning: "#D4A843", danger: "#C75D5D",
+};
+
+/* ── ナビゲーション定義 ── */
+const NAV = [
+  { id: "listing", icon: FileText, label: "出品文章生成", desc: "タイトル・説明文の自動生成" },
+  { id: "analysis", icon: TrendingUp, label: "商品分析", desc: "市場分析・価格査定" },
+  { id: "profit", icon: Calculator, label: "利益計算", desc: "仕入れ価格から利益算出" },
+  { id: "auth", icon: Shield, label: "真贋判定", desc: "真贋チェックポイント分析" },
+  { id: "reply", icon: MessageCircle, label: "メルカリ返答", desc: "質問対応の返答文生成" },
+];
+
+const CONDITIONS = [
+  { value: "S", label: "S - 未使用・デッドストック" },
+  { value: "A", label: "A - 目立つ傷汚れなし・良好" },
+  { value: "B", label: "B - 多少の使用感あり" },
+  { value: "C", label: "C - 使用感やダメージあり" },
+  { value: "D", label: "D - 大きめのダメージあり" },
+];
+
+/* ── サブコンポーネント ── */
+function FieldGroup({ label, children }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <label style={{ fontSize: 12, fontWeight: 500, color: T.textMuted, marginBottom: 6, display: "block" }}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function ImageUploader({ images, setImages }) {
+  const inputRef = useRef(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  const processFiles = useCallback((files) => {
+    Array.from(files).forEach((file) => {
+      if (!file.type.startsWith("image/")) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const base64 = e.target.result.split(",")[1];
+        setImages((prev) => [...prev, { data: base64, type: file.type, name: file.name, preview: e.target.result }]);
+      };
+      reader.readAsDataURL(file);
+    });
+  }, [setImages]);
+
+  return (
+    <div>
+      <div
+        style={{
+          border: `2px dashed ${dragActive ? T.accent : T.border}`, borderRadius: 12,
+          padding: 40, textAlign: "center", cursor: "pointer", transition: "all 0.2s",
+          background: dragActive ? `${T.accent}08` : "transparent",
+        }}
+        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        onDragLeave={() => setDragActive(false)}
+        onDrop={(e) => { e.preventDefault(); setDragActive(false); processFiles(e.dataTransfer.files); }}
+        onClick={() => inputRef.current?.click()}
+      >
+        <ImagePlus size={28} color={T.textDim} style={{ margin: "0 auto 10px", display: "block" }} />
+        <div style={{ fontSize: 13, color: T.textMuted }}>写真をドラッグ&ドロップ、またはクリック</div>
+        <div style={{ fontSize: 11, color: T.textDim, marginTop: 6 }}>全体・タグ・ディテール・サイズ表記を推奨</div>
+        <input ref={inputRef} type="file" accept="image/*" multiple style={{ display: "none" }}
+          onChange={(e) => processFiles(e.target.files)} />
+      </div>
+      {images.length > 0 && (
+        <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
+          {images.map((img, i) => (
+            <div key={i} style={{ position: "relative" }}>
+              <img src={img.preview} alt="" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, border: `1px solid ${T.border}` }} />
+              <button
+                onClick={() => setImages((p) => p.filter((_, j) => j !== i))}
+                style={{
+                  position: "absolute", top: -6, right: -6, width: 20, height: 20,
+                  borderRadius: "50%", background: T.danger, border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", padding: 0,
+                }}
+              >
+                <X size={11} color="#fff" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      style={{
+        padding: "6px 14px", borderRadius: 8, border: `1px solid ${T.border}`,
+        background: "transparent", color: T.textMuted, fontSize: 12,
+        cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+      }}
+      onClick={() => { navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+    >
+      {copied ? <><Check size={13} /> コピー済み</> : <><Copy size={13} /> コピー</>}
+    </button>
+  );
+}
+
+/* ── スタイルヘルパー ── */
+const inputStyle = {
+  width: "100%", padding: "10px 14px", background: T.surfaceAlt,
+  border: `1px solid ${T.border}`, borderRadius: 8, color: T.text,
+  fontSize: 13, outline: "none", boxSizing: "border-box",
+};
+
+const textareaStyle = { ...inputStyle, resize: "vertical", minHeight: 100, lineHeight: 1.7 };
+
+const cardStyle = {
+  background: "rgba(22,21,27,0.85)", border: `1px solid ${T.border}`,
+  borderRadius: 12, padding: 24, marginBottom: 20,
+};
+
+const cardTitleStyle = {
+  fontSize: 14, fontWeight: 600, color: T.accent, marginBottom: 16,
+  display: "flex", alignItems: "center", gap: 8,
+};
+
+const btnStyle = (variant = "primary") => ({
+  padding: "10px 20px", borderRadius: 8, border: variant === "ghost" ? `1px solid ${T.border}` : "none",
+  cursor: "pointer", fontSize: 13, fontWeight: 600,
+  display: "inline-flex", alignItems: "center", gap: 8, transition: "all 0.2s",
+  background: variant === "primary" ? T.accent : "transparent",
+  color: variant === "primary" ? "#0C0B0F" : T.textMuted,
+});
+
+/* ── メインアプリ ── */
+export default function Home() {
+  const [page, setPage] = useState("listing");
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [images, setImages] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState("");
+
+  const [form, setForm] = useState({
+    brand: "", item: "", era: "", material: "", color: "",
+    features: "", sizeLabel: "", length: "", width: "",
+    shoulder: "", sleeve: "", condition: "A", conditionNote: "", baseInfo: "",
+  });
+  const [profitForm, setProfitForm] = useState({ purchasePrice: "", shipping: "1000" });
+  const [replyForm, setReplyForm] = useState({ question: "" });
+
+  const u = (key, val) => setForm((p) => ({ ...p, [key]: val }));
+
+  const generate = async (type) => {
+    setLoading(true); setResult("");
+    try {
+      let sys, msg;
+      const imgData = images.map((i) => ({ data: i.data, type: i.type }));
+
+      if (type === "listing") {
+        sys = LISTING_PROMPT;
+        const d = new Date();
+        const ds = `${String(d.getFullYear()).slice(2)}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
+        msg = `以下の商品情報をもとに、メルカリ出品用のタイトルと説明文を生成してください。
+
+【現時点の商品説明用ベース情報】
+${form.baseInfo || "（なし）"}
+
+ブランド：${form.brand || "不明"}
+アイテム名：${form.item || "不明"}
+年代：${form.era || "不明"}
+素材：${form.material || "不明"}
+カラー：${form.color || "不明"}
+特徴：${form.features || "特になし"}
+サイズ表記：${form.sizeLabel || "不明"}
+実寸：着丈：${form.length||"___"}㎝ / 身幅：${form.width||"___"}㎝ / 肩幅：${form.shoulder||"___"}㎝ / 袖丈：${form.sleeve||"___"}㎝
+状態ランク：${form.condition}
+状態補足：${form.conditionNote || "特になし"}
+SKU日付：${ds}
+出品番号：01
+${images.length > 0 ? "添付写真も参考にしてください。" : ""}
+【出力開始】`;
+      } else if (type === "analysis") {
+        sys = ANALYSIS_PROMPT;
+        msg = `ブランド：${form.brand}\nアイテム：${form.item}\n素材：${form.material}\nカラー：${form.color}\n状態：${form.condition}\n特徴：${form.features}`;
+      } else if (type === "auth") {
+        sys = AUTH_PROMPT;
+        msg = `ブランド：${form.brand}\nアイテム：${form.item}\n${images.length > 0 ? "添付写真を元に判定してください。" : "写真がないため一般的なチェックポイントを提示してください。"}`;
+      } else if (type === "profit") {
+        sys = PROFIT_PROMPT;
+        msg = `仕入れ価格：${profitForm.purchasePrice}円\n送料：${profitForm.shipping}円\nブランド：${form.brand}\nアイテム：${form.item}\n状態：${form.condition}`;
+      } else if (type === "reply") {
+        sys = REPLY_PROMPT;
+        msg = `出品中：${form.brand} ${form.item}（状態${form.condition}）\n\n購入希望者の質問：\n${replyForm.question}`;
+      }
+
+      const res = await callClaude(sys, msg, (type !== "profit" && type !== "reply") ? imgData : []);
+      setResult(res);
+    } catch (err) {
+      setResult("エラー: " + err.message);
+    }
+    setLoading(false);
+  };
+
+  const nav = NAV.find((n) => n.id === page);
+
+  return (
+    <div style={{ display: "flex", minHeight: "100vh" }}>
+      {/* サイドバー */}
+      <aside style={{
+        width: sidebarOpen ? 260 : 0, minHeight: "100vh", background: T.surface,
+        borderRight: `1px solid ${T.border}`, transition: "width 0.3s", overflow: "hidden",
+        flexShrink: 0, display: "flex", flexDirection: "column",
+      }}>
+        <div style={{ width: 260, padding: "24px 0", display: "flex", flexDirection: "column", height: "100%" }}>
+          <div style={{ padding: "0 20px 24px", borderBottom: `1px solid ${T.border}`, marginBottom: 8 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.08em", color: T.accent }}>FURIGI TOOL</div>
+            <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>古着出品アシスタント</div>
+          </div>
+          <nav style={{ flex: 1, paddingTop: 8 }}>
+            {NAV.map((n) => (
+              <div
+                key={n.id}
+                onClick={() => { setPage(n.id); setResult(""); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "12px 20px",
+                  cursor: "pointer", transition: "all 0.2s",
+                  background: page === n.id ? `${T.accent}15` : "transparent",
+                  borderLeft: page === n.id ? `3px solid ${T.accent}` : "3px solid transparent",
+                  color: page === n.id ? T.accent : T.textMuted, fontSize: 13,
+                  fontWeight: page === n.id ? 600 : 400,
+                }}
+              >
+                <n.icon size={16} />
+                <span>{n.label}</span>
+              </div>
+            ))}
+          </nav>
+          <div style={{ padding: "16px 20px", borderTop: `1px solid ${T.border}`, fontSize: 11, color: T.textDim }}>
+            Powered by Claude API
+          </div>
+        </div>
+      </aside>
+
+      {/* メインエリア */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        {/* ヘッダー */}
+        <header style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "16px 28px", borderBottom: `1px solid ${T.border}`, background: T.surface,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <button onClick={() => setSidebarOpen(!sidebarOpen)}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+              <Menu size={18} color={T.textMuted} />
+            </button>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600 }}>{nav?.label}</div>
+              <div style={{ fontSize: 11, color: T.textDim, marginTop: 1 }}>{nav?.desc}</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, background: `${T.accent}20`, color: T.accent, border: `1px solid ${T.accent}40` }}>
+              メルカリ対応
+            </span>
+            <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, background: `${T.success}20`, color: T.success, border: `1px solid ${T.success}40` }}>
+              {images.length} 写真
+            </span>
+          </div>
+        </header>
+
+        {/* コンテンツ */}
+        <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
+          <div style={{ maxWidth: 880, margin: "0 auto" }}>
+
+            {/* 写真アップロード */}
+            {["listing", "analysis", "auth"].includes(page) && (
+              <div style={cardStyle}>
+                <div style={cardTitleStyle}><Camera size={15} /> 商品写真</div>
+                <ImageUploader images={images} setImages={setImages} />
+              </div>
+            )}
+
+            {/* ── 出品文章生成 ── */}
+            {page === "listing" && (
+              <>
+                <div style={cardStyle}>
+                  <div style={cardTitleStyle}><Package size={15} /> 商品情報</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <FieldGroup label="ブランド名"><input style={inputStyle} placeholder="例: Timberland" value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="アイテム名"><input style={inputStyle} placeholder="例: レザージャケット" value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="年代"><input style={inputStyle} placeholder="例: 90s（不明なら空欄）" value={form.era} onChange={e => u("era", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="素材"><input style={inputStyle} placeholder="例: 本革（不明なら空欄）" value={form.material} onChange={e => u("material", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="カラー"><input style={inputStyle} placeholder="例: ブラック" value={form.color} onChange={e => u("color", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="サイズ表記"><input style={inputStyle} placeholder="例: L" value={form.sizeLabel} onChange={e => u("sizeLabel", e.target.value)} /></FieldGroup>
+                  </div>
+                  <FieldGroup label="特徴・ディテール"><input style={inputStyle} placeholder="例: フルジップ、裏地あり" value={form.features} onChange={e => u("features", e.target.value)} /></FieldGroup>
+
+                  <div style={{ ...cardTitleStyle, marginTop: 20, marginBottom: 12 }}>実寸（㎝）</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
+                    <FieldGroup label="着丈"><input style={inputStyle} placeholder="__" value={form.length} onChange={e => u("length", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="身幅"><input style={inputStyle} placeholder="__" value={form.width} onChange={e => u("width", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="肩幅"><input style={inputStyle} placeholder="__" value={form.shoulder} onChange={e => u("shoulder", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="袖丈"><input style={inputStyle} placeholder="__" value={form.sleeve} onChange={e => u("sleeve", e.target.value)} /></FieldGroup>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <FieldGroup label="状態ランク">
+                      <select style={{ ...inputStyle, cursor: "pointer" }} value={form.condition} onChange={e => u("condition", e.target.value)}>
+                        {CONDITIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </FieldGroup>
+                    <FieldGroup label="状態補足"><input style={inputStyle} placeholder="例: 左袖に小さなシミあり" value={form.conditionNote} onChange={e => u("conditionNote", e.target.value)} /></FieldGroup>
+                  </div>
+
+                  <FieldGroup label="ベース情報（既存の説明文があれば貼り付け）">
+                    <textarea style={textareaStyle} placeholder="既存の商品説明文やメモがあればここに…" value={form.baseInfo} onChange={e => u("baseInfo", e.target.value)} />
+                  </FieldGroup>
+                </div>
+                <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+                  <button style={btnStyle("primary")} onClick={() => generate("listing")} disabled={loading}>
+                    {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={15} />}
+                    {loading ? "生成中..." : "出品文章を生成"}
+                  </button>
+                  <button style={btnStyle("ghost")} onClick={() => setResult("")}><RotateCcw size={14} /> リセット</button>
+                </div>
+              </>
+            )}
+
+            {/* ── 商品分析 ── */}
+            {page === "analysis" && (
+              <>
+                <div style={cardStyle}>
+                  <div style={cardTitleStyle}><TrendingUp size={15} /> アイテム情報</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <FieldGroup label="ブランド名"><input style={inputStyle} value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="アイテム名"><input style={inputStyle} value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="素材"><input style={inputStyle} value={form.material} onChange={e => u("material", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="カラー"><input style={inputStyle} value={form.color} onChange={e => u("color", e.target.value)} /></FieldGroup>
+                  </div>
+                  <FieldGroup label="特徴"><input style={inputStyle} value={form.features} onChange={e => u("features", e.target.value)} /></FieldGroup>
+                  <FieldGroup label="状態ランク">
+                    <select style={{ ...inputStyle, cursor: "pointer" }} value={form.condition} onChange={e => u("condition", e.target.value)}>
+                      {CONDITIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </FieldGroup>
+                </div>
+                <button style={{ ...btnStyle("primary"), marginBottom: 20 }} onClick={() => generate("analysis")} disabled={loading}>
+                  {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <TrendingUp size={15} />}
+                  {loading ? "分析中..." : "商品を分析"}
+                </button>
+              </>
+            )}
+
+            {/* ── 真贋判定 ── */}
+            {page === "auth" && (
+              <>
+                <div style={cardStyle}>
+                  <div style={cardTitleStyle}><Shield size={15} /> 判定対象</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <FieldGroup label="ブランド名"><input style={inputStyle} value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="アイテム名"><input style={inputStyle} value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
+                  </div>
+                  <div style={{ fontSize: 12, color: T.warning, marginTop: 8, padding: "8px 12px", background: `${T.warning}10`, borderRadius: 6, border: `1px solid ${T.warning}30` }}>
+                    ※ タグ・ロゴ・ステッチのアップ写真を追加すると判定精度が上がります
+                  </div>
+                </div>
+                <button style={{ ...btnStyle("primary"), marginBottom: 20 }} onClick={() => generate("auth")} disabled={loading}>
+                  {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Shield size={15} />}
+                  {loading ? "判定中..." : "真贋判定を実行"}
+                </button>
+              </>
+            )}
+
+            {/* ── 利益計算 ── */}
+            {page === "profit" && (
+              <>
+                <div style={cardStyle}>
+                  <div style={cardTitleStyle}><Calculator size={15} /> 利益計算</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <FieldGroup label="ブランド名"><input style={inputStyle} value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="アイテム名"><input style={inputStyle} value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
+                  </div>
+                  <FieldGroup label="状態ランク">
+                    <select style={{ ...inputStyle, cursor: "pointer" }} value={form.condition} onChange={e => u("condition", e.target.value)}>
+                      {CONDITIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </FieldGroup>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <FieldGroup label="仕入れ価格（円）">
+                      <input style={inputStyle} type="number" placeholder="例: 3000" value={profitForm.purchasePrice} onChange={e => setProfitForm(p => ({ ...p, purchasePrice: e.target.value }))} />
+                    </FieldGroup>
+                    <FieldGroup label="送料（円）">
+                      <input style={inputStyle} type="number" value={profitForm.shipping} onChange={e => setProfitForm(p => ({ ...p, shipping: e.target.value }))} />
+                    </FieldGroup>
+                  </div>
+                  <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>※ メルカリ手数料10%で自動計算</div>
+                </div>
+                <button style={{ ...btnStyle("primary"), marginBottom: 20 }} onClick={() => generate("profit")} disabled={loading || !profitForm.purchasePrice}>
+                  {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Calculator size={15} />}
+                  {loading ? "計算中..." : "利益を計算"}
+                </button>
+              </>
+            )}
+
+            {/* ── メルカリ返答 ── */}
+            {page === "reply" && (
+              <>
+                <div style={cardStyle}>
+                  <div style={cardTitleStyle}><MessageCircle size={15} /> 返答生成</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                    <FieldGroup label="ブランド名"><input style={inputStyle} value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="アイテム名"><input style={inputStyle} value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
+                  </div>
+                  <FieldGroup label="状態ランク">
+                    <select style={{ ...inputStyle, cursor: "pointer" }} value={form.condition} onChange={e => u("condition", e.target.value)}>
+                      {CONDITIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                    </select>
+                  </FieldGroup>
+                  <FieldGroup label="購入希望者からの質問内容">
+                    <textarea style={{ ...textareaStyle, minHeight: 120 }} placeholder="例: サイズ感はどのくらいですか？"
+                      value={replyForm.question} onChange={e => setReplyForm({ question: e.target.value })} />
+                  </FieldGroup>
+                  <div style={{ fontSize: 11, color: T.textDim }}>※ 1000文字以内で生成します</div>
+                </div>
+                <button style={{ ...btnStyle("primary"), marginBottom: 20 }} onClick={() => generate("reply")} disabled={loading || !replyForm.question}>
+                  {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={15} />}
+                  {loading ? "生成中..." : "返答文を生成"}
+                </button>
+              </>
+            )}
+
+            {/* ── 結果表示 ── */}
+            {(loading || result) && (
+              <div style={cardStyle}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <div style={cardTitleStyle}>
+                    <Sparkles size={15} /> {loading ? "AIが生成中です..." : "生成結果"}
+                  </div>
+                  {result && <CopyButton text={result} />}
+                </div>
+                {loading ? (
+                  <div style={{ textAlign: "center", padding: 40 }}>
+                    <Loader2 size={28} color={T.accent} style={{ animation: "spin 1s linear infinite" }} />
+                    <div style={{ fontSize: 13, color: T.textMuted, marginTop: 14 }}>分析・生成しています…</div>
+                  </div>
+                ) : (
+                  <div style={{
+                    background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 10,
+                    padding: 20, whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.8,
+                    maxHeight: 600, overflowY: "auto",
+                  }}>
+                    {result}
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
