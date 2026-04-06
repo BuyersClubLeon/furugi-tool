@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Camera, FileText, TrendingUp, Calculator, Shield,
   MessageCircle, Menu, X, Loader2, Copy, Check,
-  Sparkles, Package, Send, RotateCcw, ImagePlus,
+  Sparkles, Package, Send, RotateCcw, ImagePlus, LogOut,
 } from "lucide-react";
 
 /* ── API呼び出し（サーバーサイドプロキシ経由） ── */
@@ -507,8 +507,21 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
               </div>
             ))}
           </nav>
-          <div style={{ padding: "16px 20px", borderTop: `1px solid #3A4D3A`, fontSize: 11, color: "#7A7662" }}>
-            Powered by Claude API
+          <div style={{ padding: "12px 20px", borderTop: `1px solid #3A4D3A` }}>
+            <button
+              onClick={async () => {
+                await fetch("/api/auth/logout", { method: "POST" });
+                window.location.href = "/login";
+              }}
+              style={{
+                width: "100%", padding: "10px 14px", borderRadius: 8,
+                border: "1px solid #3A4D3A", background: "transparent",
+                color: "#C2BBA8", fontSize: 13, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              <LogOut size={14} /> ログアウト
+            </button>
           </div>
         </div>
       </aside>
