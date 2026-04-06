@@ -84,7 +84,7 @@ const LISTING_PROMPT = `${SYSTEM_BASE}
 ・ベース情報の文章はそのまま機械的に繰り返さず、今回の商品情報に合わせて自然な表現に整理して組み込む
 ・ベース情報に書かれていない内容を推測で補わない
 ・ベース情報は、主に以下へ反映する: ①冒頭の魅力訴求 ②本文 ③検索キーワード
-・タイトル、状態、サイズ、管理番号は必ず今回の入力情報を優先する
+・タイトル、状態、サイズは必ず今回の入力情報を優先する
 ・ベース情報が空欄の場合は、他の入力情報のみで通常通り生成する
 
 【説明文の構成 — 必ずこの順番で出力すること】
@@ -141,9 +141,6 @@ const LISTING_PROMPT = `${SYSTEM_BASE}
 ・必要に応じて以下を自然に含める:
 You can purchase immediately.
 Please rest assured that this item is authentic.
-
-9. 管理番号
-・最後の最後に 管理番号：SJK-YYMMDD-XX の形式で必ず記載する
 
 【禁止事項 — 厳守】
 ・入力にない素材を断定しない
@@ -409,8 +406,6 @@ export default function Home() {
 
       if (type === "listing") {
         sys = LISTING_PROMPT;
-        const d = new Date();
-        const ds = `${String(d.getFullYear()).slice(2)}${String(d.getMonth()+1).padStart(2,"0")}${String(d.getDate()).padStart(2,"0")}`;
         msg = `以下の商品情報をもとに、メルカリ出品用のタイトルと説明文を生成してください。
 
 【現時点の商品説明用ベース情報】
@@ -430,8 +425,6 @@ ${form.baseInfo || "（なし）"}
 袖丈：${form.sleeve || "___"}㎝
 状態ランク：${form.condition}
 状態補足：${form.conditionNote || "特になし"}
-SKU日付：${ds}
-出品番号：01
 ${images.length > 0 ? "添付写真も参考にしてください。写真から読み取れる情報は活用してください。ただし、写真から確認できない情報は断定しないでください。" : "写真は添付されていません。入力情報のみで生成してください。入力にない情報は断定せず空欄にしてください。"}
 
 【出力開始】`;
