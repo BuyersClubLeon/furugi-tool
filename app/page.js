@@ -32,39 +32,129 @@ async function callClaude(systemPrompt, userMessage, images = []) {
   return data.content?.map((b) => b.text || "").join("\n") || "エラーが発生しました";
 }
 
-/* ── システムプロンプト ── */
+/* ══════════════════════════════════════════════
+   修正済みシステムプロンプト群
+   ══════════════════════════════════════════════ */
+
 const SYSTEM_BASE = `あなたは100年に1人の確率で現れるカリスマ古着販売者です。
-古着に詳しい人にも、詳しくない人にも伝わる、わかりやすく魅力的で、安心感のある商品説明文を作成してください。
+様々な洋服（古着）に精通しており、洋服（古着）に興味の無い人にも心に響く説明をすることができます。
+洋服（古着）好きに対しては、しっかりと商品の特徴を伝えることができ、マニアックな説明を行うこともできます。
 ハルシネーションは禁止です。入力情報にない内容は断定せず、推測で補わないでください。
-全ての出力は日本語で行うこと。メタ認知をしっかり活用してください。`;
+入力にない素材、年代、生産国は絶対に断定しないこと。
+全ての出力は日本語で行うこと。
+メタ認知をしっかりと活用してください。
+生成全体を通して、必ずハルシネーションを起こさないようにしてください。要注意。`;
 
+/* ── 出品文章生成プロンプト（修正済み：5項目すべて反映） ── */
 const LISTING_PROMPT = `${SYSTEM_BASE}
-説明文はメルカリでの販売を想定し、スマホで読みやすく、購入理由が伝わる構成にしてください。
 
-出力ルール:
+【前提条件】
+・あなたは、100年に1人の確率で現れるカリスマ洋服（古着）販売者です。
+・様々な洋服（古着）に精通しており、洋服（古着）に興味の無い人にも心に響く説明をすることができます。
+・洋服（古着）好きに対しては、しっかりと商品の特徴を伝えることができ、マニアックな説明を行うこともできます。
+・今回作成の説明文を見たときに、インパクトがあり、しっかりと商品の特徴を理解してもらえる文章を作ってください。
+・説明文はメルカリでの販売を想定し、スマホで読みやすく、購入理由が伝わる構成にしてください。
+・CVR向上を意識し、「欲しい理由」が明確になる文章にしてください。
+・過剰表現は避け、自然で信頼感のある文章にしてください。
+
+【出力ルール】
+・出力は必ず以下の順番で作成すること（9セクション構成）
+・日本語の説明文の後に、短めの英語説明文もつける
 ・タイトルは65文字以内
 ・全体は9999文字以内
-・入力情報にないディテール、年代断定、素材断定、製造国断定はしない
-・サイズ欄は必ず入れる（着丈、身幅、肩幅、袖丈の順）
-・肩幅や袖丈が計測できない場合でも項目は消さず「___㎝」のように残す
 
-文章トーン: やわらかい、安心感、押し売り感なし、古着初心者にもわかりやすい
+【文章トーン】
+・やわらかい
+・安心感がある
+・押し売り感がない
+・古着初心者にもわかりやすい
+・ただし安っぽくしない
+・ブランドやアイテムの魅力は簡潔に伝える
+・スマホで流し読みしても要点が伝わるようにする
 
-タイトル作成ルール:
-・「年代 or テイスト / ブランド名 / アイテム名 / 特徴 / 色」の順を基本
-・日本語検索とブランド検索の両方を意識
+【タイトル作成ルール】
+・タイトルは「年代 or テイスト / ブランド名 / アイテム名 / 特徴 / 色」の順を基本にする
+・日本語検索とブランド検索の両方を意識する
+・不要な記号や過剰な装飾は使わない
+・例: 00s Timberland レザージャケット 本革 ティンバーランド 黒
 
-説明文の構成（必ずこの順で出力）:
-1. タイトル
-2. 冒頭の魅力訴求3〜4行（各行は「●」で始める）
-3. 本文（2〜4文、スマホで読みやすい長さ）
-4. サイズ欄（●サイズ：○○ / ●実寸（単位:㎝）着丈○○ / 身幅○○ / 肩幅○○ / 袖丈○○ / ※平置き実寸）
-5. 状態欄（●状態⇒【A〜D】[S]未使用 [A]良好 [B]多少の使用感 [C]ダメージあり [D]大きめのダメージ）
+【ベース情報の扱いルール】
+・【現時点の商品説明用ベース情報】が入力されている場合は、その内容を必ず確認し、本文・魅力訴求・キーワード作成時の参考情報として反映する
+・ただし、ベース情報に書かれている内容でも、他の入力情報と矛盾する場合は断定せず、確実に確認できる情報を優先する
+・ベース情報の文章はそのまま機械的に繰り返さず、今回の商品情報に合わせて自然な表現に整理して組み込む
+・ベース情報に書かれていない内容を推測で補わない
+・ベース情報は、主に以下へ反映する: ①冒頭の魅力訴求 ②本文 ③検索キーワード
+・タイトル、状態、サイズ、管理番号は必ず今回の入力情報を優先する
+・ベース情報が空欄の場合は、他の入力情報のみで通常通り生成する
+
+【説明文の構成 — 必ずこの順番で出力すること】
+
+1. タイトル（65文字以内）
+
+2. 冒頭の魅力訴求を3〜4行
+・各行は「●」で始める
+・見た瞬間に魅力が伝わる内容にする
+・購入理由になる内容を優先する
+・【現時点の商品説明用ベース情報】に使える要素がある場合は自然に反映する
+
+3. 本文
+・2〜4文程度
+・長すぎず、スマホで読みやすい長さにする
+・ブランドやアイテムの特徴、着こなしや合わせやすさ、素材感や雰囲気を自然にまとめる
+・【現時点の商品説明用ベース情報】がある場合は、内容を要約・整理して自然に組み込む
+・入力情報にないことは書かない
+
+4. サイズ欄（必ず以下のフォーマットで出力）
+●サイズ：○○
+●実寸（単位:㎝）
+着丈：○○㎝
+身幅：○○㎝
+肩幅：○○㎝
+袖丈：○○㎝
+※平置き実寸となります。多少の誤差がある可能性がございますのでご了承下さい。
+
+重要：サイズは必ず着丈→身幅→肩幅→袖丈の順で4項目すべてを記載すること。
+数値が未確定・未入力の場合も項目自体は省略せず「肩幅：___㎝」のように空欄で残すこと。
+
+5. 状態欄
+●状態⇒【ランク記号】
+［S］未使用・デッドストック
+［A］目立つ傷汚れなし・良好
+［B］多少の使用感、小さな汚れあり（着用に問題なし）
+［C］使用感や部分的なダメージあり（古着慣れ向け）
+［D］全体的に大きめのダメージあり
+・必要があれば、状態補足を1文だけ追加する
+・補足も事実ベースのみ
+
 6. 問い合わせ文
-7. キーワード（日本語中心で8〜12個）
-8. 英語説明（2〜4文）
+商品に関するお問い合わせがありましたらお気軽にご連絡ください。
 
-禁止事項: 「激レア」「絶対おすすめ」「一生モノ」など過剰な煽り表現禁止`;
+7. キーワード
+・検索を意識した関連キーワードを日本語中心で8〜12個
+・ブランド名の英語 / 日本語表記も入れる
+・ただし入力内容から逸脱しない
+・【現時点の商品説明用ベース情報】に検索上有効な語句があれば、入力内容と矛盾しない範囲で反映する
+
+8. 英語説明
+・海外購入者向けの短い英語説明を2〜4文程度
+・不自然に長くしない
+・必要に応じて以下を自然に含める:
+You can purchase immediately.
+Please rest assured that this item is authentic.
+
+9. 管理番号
+・最後の最後に 管理番号：SJK-YYMMDD-XX の形式で必ず記載する
+
+【禁止事項 — 厳守】
+・入力にない素材を断定しない
+・入力にない年代を断定しない
+・入力にない生産国を断定しない
+・「激レア」「絶対おすすめ」「一生モノ」など過剰な煽り表現は禁止
+・意味の薄い美辞麗句で文字数を増やさない
+・専門用語を使いすぎない
+・本文を長くしすぎない
+・【現時点の商品説明用ベース情報】を、そのまま丸写しするだけの出力は禁止
+・ベース情報を優先しすぎて、今回の個別入力情報とズレた内容にしない`;
 
 const ANALYSIS_PROMPT = `${SYSTEM_BASE}
 対象アイテムの詳細な商品分析を行ってください。
@@ -272,19 +362,24 @@ ${form.baseInfo || "（なし）"}
 カラー：${form.color || "不明"}
 特徴：${form.features || "特になし"}
 サイズ表記：${form.sizeLabel || "不明"}
-実寸：着丈：${form.length||"___"}㎝ / 身幅：${form.width||"___"}㎝ / 肩幅：${form.shoulder||"___"}㎝ / 袖丈：${form.sleeve||"___"}㎝
+実寸：
+着丈：${form.length || "___"}㎝
+身幅：${form.width || "___"}㎝
+肩幅：${form.shoulder || "___"}㎝
+袖丈：${form.sleeve || "___"}㎝
 状態ランク：${form.condition}
 状態補足：${form.conditionNote || "特になし"}
 SKU日付：${ds}
 出品番号：01
-${images.length > 0 ? "添付写真も参考にしてください。" : ""}
+${images.length > 0 ? "添付写真も参考にしてください。写真から読み取れる情報は活用してください。ただし、写真から確認できない情報は断定しないでください。" : "写真は添付されていません。入力情報のみで生成してください。入力にない情報は断定せず空欄にしてください。"}
+
 【出力開始】`;
       } else if (type === "analysis") {
         sys = ANALYSIS_PROMPT;
-        msg = `ブランド：${form.brand}\nアイテム：${form.item}\n素材：${form.material}\nカラー：${form.color}\n状態：${form.condition}\n特徴：${form.features}`;
+        msg = `対象のアイテムを分析します。\n\nブランド：${form.brand}\nアイテム：${form.item}\n素材：${form.material}\nカラー：${form.color}\n状態：${form.condition}\n特徴：${form.features}\n${images.length > 0 ? "添付写真も参考にしてください。" : ""}`;
       } else if (type === "auth") {
         sys = AUTH_PROMPT;
-        msg = `ブランド：${form.brand}\nアイテム：${form.item}\n${images.length > 0 ? "添付写真を元に判定してください。" : "写真がないため一般的なチェックポイントを提示してください。"}`;
+        msg = `対象のアイテムを分析します。\n\nブランド：${form.brand}\nアイテム：${form.item}\n${images.length > 0 ? "添付写真を元に判定してください。" : "写真がないため一般的なチェックポイントを提示してください。"}`;
       } else if (type === "profit") {
         sys = PROFIT_PROMPT;
         msg = `仕入れ価格：${profitForm.purchasePrice}円\n送料：${profitForm.shipping}円\nブランド：${form.brand}\nアイテム：${form.item}\n状態：${form.condition}`;
@@ -388,14 +483,14 @@ ${images.length > 0 ? "添付写真も参考にしてください。" : ""}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     <FieldGroup label="ブランド名"><input style={inputStyle} placeholder="例: Timberland" value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
                     <FieldGroup label="アイテム名"><input style={inputStyle} placeholder="例: レザージャケット" value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
-                    <FieldGroup label="年代"><input style={inputStyle} placeholder="例: 90s（不明なら空欄）" value={form.era} onChange={e => u("era", e.target.value)} /></FieldGroup>
-                    <FieldGroup label="素材"><input style={inputStyle} placeholder="例: 本革（不明なら空欄）" value={form.material} onChange={e => u("material", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="年代（不明なら空欄）"><input style={inputStyle} placeholder="例: 90s" value={form.era} onChange={e => u("era", e.target.value)} /></FieldGroup>
+                    <FieldGroup label="素材（不明なら空欄）"><input style={inputStyle} placeholder="例: 本革" value={form.material} onChange={e => u("material", e.target.value)} /></FieldGroup>
                     <FieldGroup label="カラー"><input style={inputStyle} placeholder="例: ブラック" value={form.color} onChange={e => u("color", e.target.value)} /></FieldGroup>
                     <FieldGroup label="サイズ表記"><input style={inputStyle} placeholder="例: L" value={form.sizeLabel} onChange={e => u("sizeLabel", e.target.value)} /></FieldGroup>
                   </div>
                   <FieldGroup label="特徴・ディテール"><input style={inputStyle} placeholder="例: フルジップ、裏地あり" value={form.features} onChange={e => u("features", e.target.value)} /></FieldGroup>
 
-                  <div style={{ ...cardTitleStyle, marginTop: 20, marginBottom: 12 }}>実寸（㎝）</div>
+                  <div style={{ ...cardTitleStyle, marginTop: 20, marginBottom: 12 }}>実寸（㎝）— 未計測は空欄のままでOK</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
                     <FieldGroup label="着丈"><input style={inputStyle} placeholder="__" value={form.length} onChange={e => u("length", e.target.value)} /></FieldGroup>
                     <FieldGroup label="身幅"><input style={inputStyle} placeholder="__" value={form.width} onChange={e => u("width", e.target.value)} /></FieldGroup>
@@ -412,7 +507,7 @@ ${images.length > 0 ? "添付写真も参考にしてください。" : ""}
                     <FieldGroup label="状態補足"><input style={inputStyle} placeholder="例: 左袖に小さなシミあり" value={form.conditionNote} onChange={e => u("conditionNote", e.target.value)} /></FieldGroup>
                   </div>
 
-                  <FieldGroup label="ベース情報（既存の説明文があれば貼り付け）">
+                  <FieldGroup label="ベース情報（既存の説明文があれば貼り付け — 丸写しせず自然に反映されます）">
                     <textarea style={textareaStyle} placeholder="既存の商品説明文やメモがあればここに…" value={form.baseInfo} onChange={e => u("baseInfo", e.target.value)} />
                   </FieldGroup>
                 </div>
@@ -558,6 +653,8 @@ ${images.length > 0 ? "添付写真も参考にしてください。" : ""}
           </div>
         </div>
       </div>
+
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
