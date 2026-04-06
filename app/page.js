@@ -204,11 +204,11 @@ const AUTOFILL_PROMPT = `あなたは古着の専門家です。添付された�
 
 /* ── カラートークン ── */
 const T = {
-  bg: "#1A2A1A", surface: "#223022", surfaceAlt: "#2A3C2A",
-  border: "#3A4D3A", borderLight: "#4A5F4A",
-  text: "#EDE8DA", textMuted: "#A8A28E", textDim: "#7A7662",
-  accent: "#C5A44B", accentLight: "#D4B96A",
-  success: "#6DBF7D", warning: "#D4A843", danger: "#C75D5D",
+  bg: "#EDE8DA", surface: "#E4DFCF", surfaceAlt: "#F5F1E6",
+  border: "#D1CBBA", borderLight: "#C2BBA8",
+  text: "#1A2A1A", textMuted: "#4A5F4A", textDim: "#7A7662",
+  accent: "#C5A44B", accentLight: "#A8872E",
+  success: "#3D8B4F", warning: "#B8922A", danger: "#B04040",
 };
 
 /* ── ナビゲーション定義 ── */
@@ -324,7 +324,7 @@ const inputStyle = {
 const textareaStyle = { ...inputStyle, resize: "vertical", minHeight: 100, lineHeight: 1.7 };
 
 const cardStyle = {
-  background: "rgba(34,48,34,0.85)", border: `1px solid ${T.border}`,
+  background: "rgba(245,241,230,0.9)", border: `1px solid ${T.border}`,
   borderRadius: 12, padding: 24, marginBottom: 20,
 };
 
@@ -449,14 +449,14 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
     <div style={{ display: "flex", minHeight: "100vh" }}>
       {/* サイドバー */}
       <aside style={{
-        width: sidebarOpen ? 260 : 0, minHeight: "100vh", background: T.surface,
-        borderRight: `1px solid ${T.border}`, transition: "width 0.3s", overflow: "hidden",
+        width: sidebarOpen ? 260 : 0, minHeight: "100vh", background: "#1E2E1E",
+        borderRight: `1px solid #3A4D3A`, transition: "width 0.3s", overflow: "hidden",
         flexShrink: 0, display: "flex", flexDirection: "column",
       }}>
         <div style={{ width: 260, padding: "24px 0", display: "flex", flexDirection: "column", height: "100%" }}>
-          <div style={{ padding: "0 20px 24px", borderBottom: `1px solid ${T.border}`, marginBottom: 8 }}>
+          <div style={{ padding: "0 20px 24px", borderBottom: `1px solid #3A4D3A`, marginBottom: 8 }}>
             <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.08em", color: T.accent }}>FURIGI TOOL</div>
-            <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>古着出品アシスタント</div>
+            <div style={{ fontSize: 11, color: "#A8A28E", marginTop: 2 }}>古着出品アシスタント</div>
           </div>
           <nav style={{ flex: 1, paddingTop: 8 }}>
             {NAV.map((n) => (
@@ -468,7 +468,7 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
                   cursor: "pointer", transition: "all 0.2s",
                   background: page === n.id ? `${T.accent}15` : "transparent",
                   borderLeft: page === n.id ? `3px solid ${T.accent}` : "3px solid transparent",
-                  color: page === n.id ? T.accent : T.textMuted, fontSize: 13,
+                  color: page === n.id ? T.accent : "#C2BBA8", fontSize: 13,
                   fontWeight: page === n.id ? 600 : 400,
                 }}
               >
@@ -477,7 +477,7 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
               </div>
             ))}
           </nav>
-          <div style={{ padding: "16px 20px", borderTop: `1px solid ${T.border}`, fontSize: 11, color: T.textDim }}>
+          <div style={{ padding: "16px 20px", borderTop: `1px solid #3A4D3A`, fontSize: 11, color: "#7A7662" }}>
             Powered by Claude API
           </div>
         </div>
@@ -488,16 +488,16 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
         {/* ヘッダー */}
         <header style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "16px 28px", borderBottom: `1px solid ${T.border}`, background: T.surface,
+          padding: "16px 28px", borderBottom: `1px solid ${T.border}`, background: "#1E2E1E",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
               style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-              <Menu size={18} color={T.textMuted} />
+              <Menu size={18} color="#C2BBA8" />
             </button>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 600 }}>{nav?.label}</div>
-              <div style={{ fontSize: 11, color: T.textDim, marginTop: 1 }}>{nav?.desc}</div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: "#EDE8DA" }}>{nav?.label}</div>
+              <div style={{ fontSize: 11, color: "#A8A28E", marginTop: 1 }}>{nav?.desc}</div>
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
