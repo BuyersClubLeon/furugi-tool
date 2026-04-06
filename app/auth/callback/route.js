@@ -1,6 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
-import { v4 as uuidv4 } from "uuid";
+import { createClient } from "@supabase/supabase-js";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -11,12 +10,19 @@ export async function GET(request) {
     return NextResponse.redirect(`${siteUrl}/login?error=no_code`);
   }
 
-  const supabase = createClient(
+  // Supabase Admin client for checks
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+  );
+
+  // Exchange code for session using admin client
+  const supabaseAuth = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
 
-  const { data: authData, error: authError } = await supabase.auth.exchangeCodeForSession(code);
+  const { data: authData, error: authError } = await supabaseAuth.auth.exchangeCodeForSession(code);
 
   if (authError || !authData?.user) {
     return NextResponse.redirect(`${siteUrl}/login?error=auth_failed`);
@@ -25,11 +31,6 @@ export async function GET(request) {
   const userEmail = authData.user.email;
 
   // 招待チェック
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-
   const { data: allowed } = await supabaseAdmin
     .from("allowed_emails")
     .select("email")
@@ -37,42 +38,28 @@ export async function GET(request) {
     .single();
 
   if (!allowed) {
-    await supabase.auth.signOut();
+    await supabaseAuth.auth.signOut();
     return NextResponse.redirect(`${siteUrl}/login?error=not_invited`);
   }
 
-  // 端末チェック（2台制限）
-  const deviceId = uuidv4();
-  const userId = authData.user.id;
-
-  const { data: sessions } = await supabaseAdmin
-    .from("device_sessions")
-    .select("*")
-    .eq("user_id", userId)
-    .order("last_active", { ascending: false });
-
-  if (sessions && sessions.length >= 2) {
-    // 最も古いセッションを削除
-    await supabaseAdmin
-      .from("device_sessions")
-      .delete()
-      .eq("id", sessions[sessions.length - 1].id);
-  }
-
-  // 新しいデバイスセッションを登録
-  await supabaseAdmin.from("device_sessions").insert({
-    user_id: userId,
-    device_id: deviceId,
-    last_active: new Date().toISOString(),
-  });
-
+  // セッションをcookieで渡すためリダイレクト
   const response = NextResponse.redirect(siteUrl);
-  response.cookies.set("furigi_device_id", deviceId, {
-    httpOnly: true,
-    secure: true,
-    sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+  
+  // Set session cookies
+  if (authData.session) {
+    response.cookies.set("sb-access-token", authData.session.access_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7,
+    });
+    response.cookies.set("sb-refresh-token", authData.session.refresh_token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30,
+    });
+  }
 
   return response;
 }
