@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Camera, FileText, TrendingUp, Calculator, Shield,
   MessageCircle, Menu, X, Loader2, Copy, Check,
@@ -240,7 +240,7 @@ function FieldGroup({ label, children }) {
   );
 }
 
-function ImageUploader({ images, setImages }) {
+function ImageUploader({ images, setImages, isMobile }) {
   const inputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -261,7 +261,7 @@ function ImageUploader({ images, setImages }) {
       <div
         style={{
           border: `2px dashed ${dragActive ? T.accent : T.border}`, borderRadius: 12,
-          padding: 40, textAlign: "center", cursor: "pointer", transition: "all 0.2s",
+          padding: isMobile ? 20 : 40, textAlign: "center", cursor: "pointer", transition: "all 0.2s",
           background: dragActive ? `${T.accent}08` : "transparent",
         }}
         onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
@@ -279,7 +279,7 @@ function ImageUploader({ images, setImages }) {
         <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
           {images.map((img, i) => (
             <div key={i} style={{ position: "relative" }}>
-              <img src={img.preview} alt="" style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, border: `1px solid ${T.border}` }} />
+              <img src={img.preview} alt="" style={{ width: isMobile ? 60 : 80, height: isMobile ? 60 : 80, objectFit: "cover", borderRadius: 8, border: `1px solid ${T.border}` }} />
               <button
                 onClick={() => setImages((p) => p.filter((_, j) => j !== i))}
                 style={{
@@ -328,6 +328,7 @@ const cardStyle = {
   borderRadius: 12, padding: 24, marginBottom: 20,
 };
 
+
 const cardTitleStyle = {
   fontSize: 14, fontWeight: 600, color: T.accent, marginBottom: 16,
   display: "flex", alignItems: "center", gap: 8,
@@ -343,12 +344,25 @@ const btnStyle = (variant = "primary") => ({
 
 /* ── メインアプリ ── */
 export default function Home() {
+  const [isMobile, setIsMobile] = useState(false);
   const [page, setPage] = useState("listing");
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState("");
+
+  useEffect(() => {
+    const check = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (!mobile) setSidebarOpen(true);
+      if (mobile) setSidebarOpen(false);
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const [form, setForm] = useState({
     brand: "", item: "", era: "", material: "", color: "",
@@ -447,32 +461,55 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
+      {/* モバイル: オーバーレイ背景 */}
+      {isMobile && sidebarOpen && (
+        <div onClick={() => setSidebarOpen(false)} style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.5)", zIndex: 998,
+        }} />
+      )}
+
       {/* サイドバー */}
       <aside style={{
-        width: sidebarOpen ? 260 : 0, minHeight: "100vh", background: "#1E2E1E",
-        borderRight: `1px solid #3A4D3A`, transition: "width 0.3s", overflow: "hidden",
-        flexShrink: 0, display: "flex", flexDirection: "column",
+        ...(isMobile ? {
+          position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 999,
+          transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 0.3s ease",
+          width: 260,
+        } : {
+          width: sidebarOpen ? 260 : 0, minHeight: "100vh",
+          transition: "width 0.3s", overflow: "hidden", flexShrink: 0,
+        }),
+        background: "#1E2E1E", borderRight: `1px solid #3A4D3A`,
+        display: "flex", flexDirection: "column",
       }}>
         <div style={{ width: 260, padding: "24px 0", display: "flex", flexDirection: "column", height: "100%" }}>
-          <div style={{ padding: "0 20px 24px", borderBottom: `1px solid #3A4D3A`, marginBottom: 8 }}>
-            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.08em", color: T.accent }}>FURIGI TOOL</div>
-            <div style={{ fontSize: 11, color: "#A8A28E", marginTop: 2 }}>古着出品アシスタント</div>
+          <div style={{ padding: "0 20px 24px", borderBottom: `1px solid #3A4D3A`, marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: "0.08em", color: T.accent }}>FURIGI TOOL</div>
+              <div style={{ fontSize: 11, color: "#A8A28E", marginTop: 2 }}>古着出品アシスタント</div>
+            </div>
+            {isMobile && (
+              <button onClick={() => setSidebarOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+                <X size={20} color="#C2BBA8" />
+              </button>
+            )}
           </div>
           <nav style={{ flex: 1, paddingTop: 8 }}>
             {NAV.map((n) => (
               <div
                 key={n.id}
-                onClick={() => { setPage(n.id); setResult(""); }}
+                onClick={() => { setPage(n.id); setResult(""); if (isMobile) setSidebarOpen(false); }}
                 style={{
-                  display: "flex", alignItems: "center", gap: 12, padding: "12px 20px",
+                  display: "flex", alignItems: "center", gap: 12, padding: "14px 20px",
                   cursor: "pointer", transition: "all 0.2s",
                   background: page === n.id ? `${T.accent}15` : "transparent",
                   borderLeft: page === n.id ? `3px solid ${T.accent}` : "3px solid transparent",
-                  color: page === n.id ? T.accent : "#C2BBA8", fontSize: 13,
+                  color: page === n.id ? T.accent : "#C2BBA8", fontSize: 14,
                   fontWeight: page === n.id ? 600 : 400,
                 }}
               >
-                <n.icon size={16} />
+                <n.icon size={18} />
                 <span>{n.label}</span>
               </div>
             ))}
@@ -488,22 +525,22 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
         {/* ヘッダー */}
         <header style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "16px 28px", borderBottom: `1px solid ${T.border}`, background: "#1E2E1E",
+          padding: isMobile ? "12px 16px" : "16px 28px", borderBottom: `1px solid ${T.border}`, background: "#1E2E1E",
         }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 14 }}>
             <button onClick={() => setSidebarOpen(!sidebarOpen)}
               style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-              <Menu size={18} color="#C2BBA8" />
+              <Menu size={isMobile ? 22 : 18} color="#C2BBA8" />
             </button>
             <div>
-              <div style={{ fontSize: 16, fontWeight: 600, color: "#EDE8DA" }}>{nav?.label}</div>
-              <div style={{ fontSize: 11, color: "#A8A28E", marginTop: 1 }}>{nav?.desc}</div>
+              <div style={{ fontSize: isMobile ? 14 : 16, fontWeight: 600, color: "#EDE8DA" }}>{nav?.label}</div>
+              {!isMobile && <div style={{ fontSize: 11, color: "#A8A28E", marginTop: 1 }}>{nav?.desc}</div>}
             </div>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, background: `${T.accent}20`, color: T.accent, border: `1px solid ${T.accent}40` }}>
+            {!isMobile && <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, background: `${T.accent}20`, color: T.accent, border: `1px solid ${T.accent}40` }}>
               メルカリ対応
-            </span>
+            </span>}
             <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, background: `${T.success}20`, color: T.success, border: `1px solid ${T.success}40` }}>
               {images.length} 写真
             </span>
@@ -511,14 +548,14 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
         </header>
 
         {/* コンテンツ */}
-        <div style={{ flex: 1, padding: 28, overflowY: "auto" }}>
+        <div style={{ flex: 1, padding: isMobile ? 14 : 28, overflowY: "auto" }}>
           <div style={{ maxWidth: 880, margin: "0 auto" }}>
 
             {/* 写真アップロード */}
             {["listing", "analysis", "auth"].includes(page) && (
-              <div style={cardStyle}>
+              <div style={{...cardStyle, padding: isMobile ? 16 : 24}}>
                 <div style={cardTitleStyle}><Camera size={15} /> 商品写真</div>
-                <ImageUploader images={images} setImages={setImages} />
+                <ImageUploader images={images} setImages={setImages} isMobile={isMobile} />
                 {page === "listing" && images.length > 0 && (
                   <button
                     style={{ ...btnStyle("ghost"), marginTop: 14, width: "100%", justifyContent: "center", borderColor: T.accent, color: T.accent }}
@@ -535,9 +572,9 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
             {/* ── 出品文章生成 ── */}
             {page === "listing" && (
               <>
-                <div style={cardStyle}>
+                <div style={{...cardStyle, padding: isMobile ? 16 : 24}}>
                   <div style={cardTitleStyle}><Package size={15} /> 商品情報</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                     <FieldGroup label="ブランド名"><input style={inputStyle} placeholder="例: Timberland" value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
                     <FieldGroup label="アイテム名"><input style={inputStyle} placeholder="例: レザージャケット" value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
                     <FieldGroup label="年代（不明なら空欄）"><input style={inputStyle} placeholder="例: 90s" value={form.era} onChange={e => u("era", e.target.value)} /></FieldGroup>
@@ -548,14 +585,14 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
                   <FieldGroup label="特徴・ディテール"><input style={inputStyle} placeholder="例: フルジップ、裏地あり" value={form.features} onChange={e => u("features", e.target.value)} /></FieldGroup>
 
                   <div style={{ ...cardTitleStyle, marginTop: 20, marginBottom: 12 }}>実寸（㎝）— 未計測は空欄のままでOK</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: 12 }}>
                     <FieldGroup label="着丈"><input style={inputStyle} placeholder="__" value={form.length} onChange={e => u("length", e.target.value)} /></FieldGroup>
                     <FieldGroup label="身幅"><input style={inputStyle} placeholder="__" value={form.width} onChange={e => u("width", e.target.value)} /></FieldGroup>
                     <FieldGroup label="肩幅"><input style={inputStyle} placeholder="__" value={form.shoulder} onChange={e => u("shoulder", e.target.value)} /></FieldGroup>
                     <FieldGroup label="袖丈"><input style={inputStyle} placeholder="__" value={form.sleeve} onChange={e => u("sleeve", e.target.value)} /></FieldGroup>
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                     <FieldGroup label="状態ランク">
                       <select style={{ ...inputStyle, cursor: "pointer" }} value={form.condition} onChange={e => u("condition", e.target.value)}>
                         {CONDITIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
@@ -568,12 +605,12 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
                     <textarea style={textareaStyle} placeholder="既存の商品説明文やメモがあればここに…" value={form.baseInfo} onChange={e => u("baseInfo", e.target.value)} />
                   </FieldGroup>
                 </div>
-                <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-                  <button style={btnStyle("primary")} onClick={() => generate("listing")} disabled={loading}>
+                <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12, marginBottom: 20 }}>
+                  <button style={{...btnStyle("primary"), width: isMobile ? "100%" : "auto", justifyContent: "center"}} onClick={() => generate("listing")} disabled={loading}>
                     {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={15} />}
                     {loading ? "生成中..." : "出品文章を生成"}
                   </button>
-                  <button style={btnStyle("ghost")} onClick={() => setResult("")}><RotateCcw size={14} /> リセット</button>
+                  <button style={{...btnStyle("ghost"), width: isMobile ? "100%" : "auto", justifyContent: "center"}} onClick={() => setResult("")}><RotateCcw size={14} /> リセット</button>
                 </div>
               </>
             )}
@@ -581,9 +618,9 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
             {/* ── 商品分析 ── */}
             {page === "analysis" && (
               <>
-                <div style={cardStyle}>
+                <div style={{...cardStyle, padding: isMobile ? 16 : 24}}>
                   <div style={cardTitleStyle}><TrendingUp size={15} /> アイテム情報</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                     <FieldGroup label="ブランド名"><input style={inputStyle} value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
                     <FieldGroup label="アイテム名"><input style={inputStyle} value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
                     <FieldGroup label="素材"><input style={inputStyle} value={form.material} onChange={e => u("material", e.target.value)} /></FieldGroup>
@@ -596,7 +633,7 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
                     </select>
                   </FieldGroup>
                 </div>
-                <button style={{ ...btnStyle("primary"), marginBottom: 20 }} onClick={() => generate("analysis")} disabled={loading}>
+                <button style={{...btnStyle("primary"), marginBottom: 20, width: isMobile ? "100%" : "auto", justifyContent: "center"}} onClick={() => generate("analysis")} disabled={loading}>
                   {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <TrendingUp size={15} />}
                   {loading ? "分析中..." : "商品を分析"}
                 </button>
@@ -606,9 +643,9 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
             {/* ── 真贋判定 ── */}
             {page === "auth" && (
               <>
-                <div style={cardStyle}>
+                <div style={{...cardStyle, padding: isMobile ? 16 : 24}}>
                   <div style={cardTitleStyle}><Shield size={15} /> 判定対象</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                     <FieldGroup label="ブランド名"><input style={inputStyle} value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
                     <FieldGroup label="アイテム名"><input style={inputStyle} value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
                   </div>
@@ -616,7 +653,7 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
                     ※ タグ・ロゴ・ステッチのアップ写真を追加すると判定精度が上がります
                   </div>
                 </div>
-                <button style={{ ...btnStyle("primary"), marginBottom: 20 }} onClick={() => generate("auth")} disabled={loading}>
+                <button style={{...btnStyle("primary"), marginBottom: 20, width: isMobile ? "100%" : "auto", justifyContent: "center"}} onClick={() => generate("auth")} disabled={loading}>
                   {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Shield size={15} />}
                   {loading ? "判定中..." : "真贋判定を実行"}
                 </button>
@@ -626,9 +663,9 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
             {/* ── 利益計算 ── */}
             {page === "profit" && (
               <>
-                <div style={cardStyle}>
+                <div style={{...cardStyle, padding: isMobile ? 16 : 24}}>
                   <div style={cardTitleStyle}><Calculator size={15} /> 利益計算</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                     <FieldGroup label="ブランド名"><input style={inputStyle} value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
                     <FieldGroup label="アイテム名"><input style={inputStyle} value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
                   </div>
@@ -637,7 +674,7 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
                       {CONDITIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   </FieldGroup>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                     <FieldGroup label="仕入れ価格（円）">
                       <input style={inputStyle} type="number" placeholder="例: 3000" value={profitForm.purchasePrice} onChange={e => setProfitForm(p => ({ ...p, purchasePrice: e.target.value }))} />
                     </FieldGroup>
@@ -647,7 +684,7 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
                   </div>
                   <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>※ メルカリ手数料10%で自動計算</div>
                 </div>
-                <button style={{ ...btnStyle("primary"), marginBottom: 20 }} onClick={() => generate("profit")} disabled={loading || !profitForm.purchasePrice}>
+                <button style={{...btnStyle("primary"), marginBottom: 20, width: isMobile ? "100%" : "auto", justifyContent: "center"}} onClick={() => generate("profit")} disabled={loading || !profitForm.purchasePrice}>
                   {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Calculator size={15} />}
                   {loading ? "計算中..." : "利益を計算"}
                 </button>
@@ -657,9 +694,9 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
             {/* ── メルカリ返答 ── */}
             {page === "reply" && (
               <>
-                <div style={cardStyle}>
+                <div style={{...cardStyle, padding: isMobile ? 16 : 24}}>
                   <div style={cardTitleStyle}><MessageCircle size={15} /> 返答生成</div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                     <FieldGroup label="ブランド名"><input style={inputStyle} value={form.brand} onChange={e => u("brand", e.target.value)} /></FieldGroup>
                     <FieldGroup label="アイテム名"><input style={inputStyle} value={form.item} onChange={e => u("item", e.target.value)} /></FieldGroup>
                   </div>
@@ -674,7 +711,7 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
                   </FieldGroup>
                   <div style={{ fontSize: 11, color: T.textDim }}>※ 1000文字以内で生成します</div>
                 </div>
-                <button style={{ ...btnStyle("primary"), marginBottom: 20 }} onClick={() => generate("reply")} disabled={loading || !replyForm.question}>
+                <button style={{...btnStyle("primary"), marginBottom: 20, width: isMobile ? "100%" : "auto", justifyContent: "center"}} onClick={() => generate("reply")} disabled={loading || !replyForm.question}>
                   {loading ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Send size={15} />}
                   {loading ? "生成中..." : "返答文を生成"}
                 </button>
@@ -683,7 +720,7 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
 
             {/* ── 結果表示 ── */}
             {(loading || result) && (
-              <div style={cardStyle}>
+              <div style={{...cardStyle, padding: isMobile ? 16 : 24}}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                   <div style={cardTitleStyle}>
                     <Sparkles size={15} /> {loading ? "AIが生成中です..." : "生成結果"}
@@ -691,15 +728,15 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
                   {result && <CopyButton text={result} />}
                 </div>
                 {loading ? (
-                  <div style={{ textAlign: "center", padding: 40 }}>
+                  <div style={{ textAlign: "center", padding: isMobile ? 24 : 40 }}>
                     <Loader2 size={28} color={T.accent} style={{ animation: "spin 1s linear infinite" }} />
                     <div style={{ fontSize: 13, color: T.textMuted, marginTop: 14 }}>分析・生成しています…</div>
                   </div>
                 ) : (
                   <div style={{
                     background: T.surfaceAlt, border: `1px solid ${T.border}`, borderRadius: 10,
-                    padding: 20, whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.8,
-                    maxHeight: 600, overflowY: "auto",
+                    padding: isMobile ? 14 : 20, whiteSpace: "pre-wrap", fontSize: 13, lineHeight: 1.8,
+                    maxHeight: isMobile ? "none" : 600, overflowY: "auto",
                   }}>
                     {result}
                   </div>
