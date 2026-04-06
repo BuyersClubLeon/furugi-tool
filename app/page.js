@@ -183,6 +183,25 @@ const REPLY_PROMPT = `${SYSTEM_BASE}
 ・1000文字以内
 ・丁寧で安心感のある文面`;
 
+/* ── 写真自動認識プロンプト ── */
+const AUTOFILL_PROMPT = `あなたは古着の専門家です。添付された商品写真を分析し、以下の情報をJSON形式のみで返してください。
+写真から確認できない項目は空文字""にしてください。推測や断定は禁止です。
+写真から読み取れる事実のみを記載してください。
+
+必ず以下のJSON形式のみで返答してください。説明文やMarkdownは不要です。JSONだけを返してください。
+
+{
+  "brand": "ブランド名（タグから読み取れる場合のみ）",
+  "item": "アイテムの種類（例：レザージャケット、チェスターコート等）",
+  "era": "年代（タグや特徴から推定できる場合のみ。例：90s）",
+  "material": "素材（タグから読み取れる場合のみ）",
+  "color": "カラー（見た目から判断）",
+  "sizeLabel": "サイズ表記（タグから読み取れる場合のみ）",
+  "features": "特徴・ディテール（カンマ区切り。例：フルジップ,裏地あり,フード付き）",
+  "condition": "状態ランク S/A/B/C/D（写真から判断できる場合のみ。判断できなければA）",
+  "conditionNote": "状態の補足（汚れやダメージが見える場合のみ）"
+}`;
+
 /* ── カラートークン ── */
 const T = {
   bg: "#0C0B0F", surface: "#16151B", surfaceAlt: "#1E1D25",
@@ -328,6 +347,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState("");
 
   const [form, setForm] = useState({
@@ -339,6 +359,33 @@ export default function Home() {
   const [replyForm, setReplyForm] = useState({ question: "" });
 
   const u = (key, val) => setForm((p) => ({ ...p, [key]: val }));
+
+  /* ── 写真から自動入力 ── */
+  const autoFill = async () => {
+    if (images.length === 0) return;
+    setAnalyzing(true);
+    try {
+      const imgData = images.map((i) => ({ data: i.data, type: i.type }));
+      const raw = await callClaude(AUTOFILL_PROMPT, "添付写真を分析して、商品情報をJSON形式で返してください。", imgData);
+      const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
+      const parsed = JSON.parse(cleaned);
+      setForm((prev) => ({
+        ...prev,
+        brand: parsed.brand || prev.brand,
+        item: parsed.item || prev.item,
+        era: parsed.era || prev.era,
+        material: parsed.material || prev.material,
+        color: parsed.color || prev.color,
+        sizeLabel: parsed.sizeLabel || prev.sizeLabel,
+        features: parsed.features || prev.features,
+        condition: parsed.condition || prev.condition,
+        conditionNote: parsed.conditionNote || prev.conditionNote,
+      }));
+    } catch (err) {
+      setResult("写真の自動認識に失敗しました: " + err.message);
+    }
+    setAnalyzing(false);
+  };
 
   const generate = async (type) => {
     setLoading(true); setResult("");
@@ -472,6 +519,16 @@ ${images.length > 0 ? "添付写真も参考にしてください。写真から
               <div style={cardStyle}>
                 <div style={cardTitleStyle}><Camera size={15} /> 商品写真</div>
                 <ImageUploader images={images} setImages={setImages} />
+                {page === "listing" && images.length > 0 && (
+                  <button
+                    style={{ ...btnStyle("ghost"), marginTop: 14, width: "100%", justifyContent: "center", borderColor: T.accent, color: T.accent }}
+                    onClick={autoFill}
+                    disabled={analyzing}
+                  >
+                    {analyzing ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> : <Sparkles size={15} />}
+                    {analyzing ? "写真を分析中..." : "写真から自動入力"}
+                  </button>
+                )}
               </div>
             )}
 
