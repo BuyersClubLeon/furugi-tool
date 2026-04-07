@@ -22,12 +22,9 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     const supabase = createSupabaseBrowser();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: "https://furugi-tool.vercel.app/auth/callback",
-      },
-    });
+        const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+      });
     if (error) {
       setError("ログインに失敗しました: " + error.message);
       setLoading(false);
