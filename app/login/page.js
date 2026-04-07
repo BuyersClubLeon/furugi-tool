@@ -25,7 +25,7 @@ export default function LoginPage() {
      const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-        redirectTo: "https://furugi-tool.vercel.app",
+        redirectTo: "https://furugi-tool.vercel.app/auth/callback",
         },
       });
     if (error) {
