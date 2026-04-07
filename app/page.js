@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
+import { createSupabaseBrowser } from "../lib/supabase";
 import {
   Camera, FileText, TrendingUp, Calculator, Shield,
   MessageCircle, Menu, X, Loader2, Copy, Check,
@@ -10,12 +11,14 @@ import {
 /* ── API呼び出し（サーバーサイドプロキシ経由） ── */
 async function callClaude(systemPrompt, userMessage, images = []) {
   const content = [];
+
   for (const img of images) {
     content.push({
       type: "image",
       source: { type: "base64", media_type: img.type, data: img.data },
     });
   }
+
   content.push({ type: "text", text: userMessage });
 
   const res = await fetch("/api/chat", {
@@ -29,6 +32,7 @@ async function callClaude(systemPrompt, userMessage, images = []) {
 
   const data = await res.json();
   if (data.error) throw new Error(data.error);
+
   return data.content?.map((b) => b.text || "").join("\n") || "エラーが発生しました";
 }
 
@@ -45,7 +49,7 @@ const SYSTEM_BASE = `あなたは100年に1人の確率で現れるカリスマ�
 メタ認知をしっかりと活用してください。
 生成全体を通して、必ずハルシネーションを起こさないようにしてください。要注意。`;
 
-/* ── 出品文章生成プロンプト（修正済み：5項目すべて反映） ── */
+/* ── 出品文章生成プロンプト ── */
 const LISTING_PROMPT = `${SYSTEM_BASE}
 
 【前提条件】
@@ -180,7 +184,6 @@ const REPLY_PROMPT = `${SYSTEM_BASE}
 ・1000文字以内
 ・丁寧で安心感のある文面`;
 
-/* ── 写真自動認識プロンプト ── */
 const AUTOFILL_PROMPT = `あなたは古着の専門家です。添付された商品写真を分析し、以下の情報をJSON形式のみで返してください。
 写真から確認できない項目は空文字""にしてください。推測や断定は禁止です。
 写真から読み取れる事実のみを記載してください。
@@ -211,11 +214,19 @@ const EMPTY_FEEDBACK = {
 
 /* ── カラートークン ── */
 const T = {
-  bg: "#EDE8DA", surface: "#E4DFCF", surfaceAlt: "#F5F1E6",
-  border: "#D1CBBA", borderLight: "#C2BBA8",
-  text: "#1A2A1A", textMuted: "#4A5F4A", textDim: "#7A7662",
-  accent: "#C5A44B", accentLight: "#A8872E",
-  success: "#3D8B4F", warning: "#B8922A", danger: "#B04040",
+  bg: "#EDE8DA",
+  surface: "#E4DFCF",
+  surfaceAlt: "#F5F1E6",
+  border: "#D1CBBA",
+  borderLight: "#C2BBA8",
+  text: "#1A2A1A",
+  textMuted: "#4A5F4A",
+  textDim: "#7A7662",
+  accent: "#C5A44B",
+  accentLight: "#A8872E",
+  success: "#3D8B4F",
+  warning: "#B8922A",
+  danger: "#B04040",
 };
 
 /* ── ナビゲーション定義 ── */
@@ -249,7 +260,15 @@ const FEEDBACK_ISSUES = [
 function FieldGroup({ label, children }) {
   return (
     <div style={{ marginBottom: 14 }}>
-      <label style={{ fontSize: 12, fontWeight: 500, color: T.textMuted, marginBottom: 6, display: "block" }}>
+      <label
+        style={{
+          fontSize: 12,
+          fontWeight: 500,
+          color: T.textMuted,
+          marginBottom: 6,
+          display: "block",
+        }}
+      >
         {label}
       </label>
       {children}
@@ -267,7 +286,15 @@ function ImageUploader({ images, setImages, isMobile }) {
       const reader = new FileReader();
       reader.onload = (e) => {
         const base64 = e.target.result.split(",")[1];
-        setImages((prev) => [...prev, { data: base64, type: file.type, name: file.name, preview: e.target.result }]);
+        setImages((prev) => [
+          ...prev,
+          {
+            data: base64,
+            type: file.type,
+            name: file.name,
+            preview: e.target.result,
+          },
+        ]);
       };
       reader.readAsDataURL(file);
     });
@@ -285,9 +312,16 @@ function ImageUploader({ images, setImages, isMobile }) {
           transition: "all 0.2s",
           background: dragActive ? `${T.accent}08` : "transparent",
         }}
-        onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragActive(true);
+        }}
         onDragLeave={() => setDragActive(false)}
-        onDrop={(e) => { e.preventDefault(); setDragActive(false); processFiles(e.dataTransfer.files); }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragActive(false);
+          processFiles(e.dataTransfer.files);
+        }}
         onClick={() => inputRef.current?.click()}
       >
         <ImagePlus size={28} color={T.textDim} style={{ margin: "0 auto 10px", display: "block" }} />
@@ -436,8 +470,13 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState("");
+  const [requestId, setRequestId] = useState("");
+  const [requestSaveError, setRequestSaveError] = useState("");
+  const [generatedFeatureType, setGeneratedFeatureType] = useState("");
   const [feedback, setFeedback] = useState({ ...EMPTY_FEEDBACK });
-  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState("");
+  const [feedbackMessageType, setFeedbackMessageType] = useState("");
 
   useEffect(() => {
     const check = () => {
@@ -446,6 +485,7 @@ export default function Home() {
       if (!mobile) setSidebarOpen(true);
       if (mobile) setSidebarOpen(false);
     };
+
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
@@ -482,7 +522,72 @@ export default function Home() {
 
   const resetFeedback = () => {
     setFeedback({ ...EMPTY_FEEDBACK });
-    setFeedbackSubmitted(false);
+    setFeedbackLoading(false);
+    setFeedbackMessage("");
+    setFeedbackMessageType("");
+  };
+
+  const resetResultArea = () => {
+    setResult("");
+    setRequestId("");
+    setRequestSaveError("");
+    setGeneratedFeatureType("");
+    resetFeedback();
+  };
+
+  const getAccessToken = async () => {
+    const supabase = createSupabaseBrowser();
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || "";
+  };
+
+  const buildInputTextJson = (type) => {
+    return {
+      feature_type: type,
+      page,
+      form,
+      profitForm,
+      replyForm,
+    };
+  };
+
+  const buildInputImagesJson = () => {
+    return images.map((img) => ({
+      name: img.name,
+      type: img.type,
+    }));
+  };
+
+  const saveAnalysisRequest = async (type, outputText) => {
+    const accessToken = await getAccessToken();
+
+    if (!accessToken) {
+      throw new Error("session_not_found");
+    }
+
+    const response = await fetch("/api/analysis-request", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        access_token: accessToken,
+        feature_type: type,
+        input_images_json: buildInputImagesJson(),
+        input_text_json: buildInputTextJson(type),
+        output_json: {
+          result_text: outputText,
+        },
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !data?.request_id) {
+      throw new Error(data?.error || "analysis_request_failed");
+    }
+
+    return data.request_id;
   };
 
   const autoFill = async () => {
@@ -515,13 +620,13 @@ export default function Home() {
     } catch (err) {
       setResult("写真の自動認識に失敗しました: " + err.message);
     }
+
     setAnalyzing(false);
   };
 
   const generate = async (type) => {
     setLoading(true);
-    setResult("");
-    resetFeedback();
+    resetResultArea();
 
     try {
       let sys;
@@ -575,6 +680,16 @@ ${images.length > 0
       );
 
       setResult(res);
+      setGeneratedFeatureType(type);
+
+      try {
+        const savedRequestId = await saveAnalysisRequest(type, res);
+        setRequestId(savedRequestId);
+        setRequestSaveError("");
+      } catch (saveErr) {
+        setRequestId("");
+        setRequestSaveError(saveErr.message || "analysis_request_failed");
+      }
     } catch (err) {
       setResult("エラー: " + err.message);
     }
@@ -582,7 +697,67 @@ ${images.length > 0
     setLoading(false);
   };
 
+  const submitFeedback = async () => {
+    if (!requestId) {
+      setFeedbackMessage("先に生成結果の保存が必要です。もう一度生成を試してください。");
+      setFeedbackMessageType("error");
+      return;
+    }
+
+    setFeedbackLoading(true);
+    setFeedbackMessage("");
+    setFeedbackMessageType("");
+
+    try {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        setFeedbackMessage("セッション取得に失敗しました。ログインし直して再度お試しください。");
+        setFeedbackMessageType("error");
+        setFeedbackLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/analysis-feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+          request_id: requestId,
+          feature_type: generatedFeatureType || page,
+          rating: feedback.rating,
+          issue_type: feedback.issueType,
+          comment: feedback.comment,
+          corrected_brand: feedback.correctedBrand,
+          corrected_category: feedback.correctedCategory,
+          corrected_era: feedback.correctedEra,
+          corrected_condition: feedback.correctedCondition,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data?.ok) {
+        setFeedbackMessage("フィードバック保存に失敗しました。もう一度お試しください。");
+        setFeedbackMessageType("error");
+        setFeedbackLoading(false);
+        return;
+      }
+
+      setFeedbackMessage("フィードバックを保存しました。");
+      setFeedbackMessageType("success");
+    } catch (err) {
+      setFeedbackMessage("通信エラーが発生しました。もう一度お試しください。");
+      setFeedbackMessageType("error");
+    }
+
+    setFeedbackLoading(false);
+  };
+
   const nav = NAV.find((n) => n.id === page);
+  const generatedNav = NAV.find((n) => n.id === generatedFeatureType);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -663,8 +838,7 @@ ${images.length > 0
                 key={n.id}
                 onClick={() => {
                   setPage(n.id);
-                  setResult("");
-                  resetFeedback();
+                  resetResultArea();
                   if (isMobile) setSidebarOpen(false);
                 }}
                 style={{
@@ -964,10 +1138,7 @@ ${images.length > 0
 
                   <button
                     style={{ ...btnStyle("ghost"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
-                    onClick={() => {
-                      setResult("");
-                      resetFeedback();
-                    }}
+                    onClick={resetResultArea}
                   >
                     <RotateCcw size={14} /> リセット
                   </button>
@@ -1218,6 +1389,25 @@ ${images.length > 0
                     {result}
                   </div>
                 )}
+
+                {!!result && !loading && (
+                  <div
+                    style={{
+                      marginTop: 12,
+                      padding: "10px 12px",
+                      borderRadius: 8,
+                      border: `1px solid ${requestId ? T.success : T.warning}40`,
+                      background: requestId ? `${T.success}14` : `${T.warning}14`,
+                      color: requestId ? T.success : T.warning,
+                      fontSize: 12,
+                      lineHeight: 1.7,
+                    }}
+                  >
+                    {requestId
+                      ? "この生成結果は保存対象として記録できています。続けてフィードバック送信もできます。"
+                      : `生成結果は表示できていますが、保存準備でエラーが出ています: ${requestSaveError || "unknown_error"}`}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1239,8 +1429,8 @@ ${images.length > 0
                     lineHeight: 1.7,
                   }}
                 >
-                  今回の {nav?.label} の結果について、合っていたか確認できます。<br />
-                  ※ この版はまず画面だけ追加しています。まだDB保存にはつないでいません。
+                  今回の {generatedNav?.label || nav?.label} の結果について、合っていたか確認できます。<br />
+                  送信すると保存APIに送られます。
                 </div>
 
                 <FieldGroup label="全体の評価">
@@ -1331,10 +1521,23 @@ ${images.length > 0
                 <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12 }}>
                   <button
                     style={{ ...btnStyle("primary"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
-                    onClick={() => setFeedbackSubmitted(true)}
-                    disabled={!feedback.rating && !feedback.issueType && !feedback.comment}
+                    onClick={submitFeedback}
+                    disabled={
+                      feedbackLoading ||
+                      !requestId ||
+                      (!feedback.rating &&
+                        !feedback.issueType &&
+                        !feedback.comment &&
+                        !feedback.correctedBrand &&
+                        !feedback.correctedCategory &&
+                        !feedback.correctedEra &&
+                        !feedback.correctedCondition)
+                    }
                   >
-                    <Send size={15} /> 入力内容を確認
+                    {feedbackLoading
+                      ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+                      : <Send size={15} />}
+                    {feedbackLoading ? "送信中..." : "フィードバックを送信"}
                   </button>
 
                   <button
@@ -1345,21 +1548,20 @@ ${images.length > 0
                   </button>
                 </div>
 
-                {feedbackSubmitted && (
+                {!!feedbackMessage && (
                   <div
                     style={{
                       marginTop: 14,
                       padding: "12px 14px",
                       borderRadius: 8,
-                      background: `${T.success}14`,
-                      border: `1px solid ${T.success}40`,
-                      color: T.success,
+                      background: feedbackMessageType === "success" ? `${T.success}14` : `${T.danger}14`,
+                      border: `1px solid ${feedbackMessageType === "success" ? T.success : T.danger}40`,
+                      color: feedbackMessageType === "success" ? T.success : T.danger,
                       fontSize: 13,
                       lineHeight: 1.7,
                     }}
                   >
-                    入力はできています。<br />
-                    次の工程で、この内容を `analysis_feedback` に保存するAPIにつなげます。
+                    {feedbackMessage}
                   </div>
                 )}
               </div>
