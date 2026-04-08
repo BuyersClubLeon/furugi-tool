@@ -212,6 +212,61 @@ const EMPTY_FEEDBACK = {
   correctedCondition: "",
 };
 
+const FEEDBACK_PAGE_SIZE = 20;
+
+const FEATURE_LABELS = {
+  listing: "出品文章生成",
+  analysis: "商品分析",
+  profit: "利益計算",
+  auth: "真贋判定",
+  reply: "メルカリ返答",
+  feedback: "フィードバック管理",
+};
+
+const RATING_LABELS = {
+  good: "良かった",
+  close: "惜しい",
+  bad: "修正が必要",
+};
+
+function getFeatureLabel(value) {
+  return FEATURE_LABELS[value] || value || "-";
+}
+
+function getRatingLabel(value) {
+  return RATING_LABELS[value] || value || "-";
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("ja-JP");
+}
+
+function prettyJson(value) {
+  if (!value) return "";
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function buildFeedbackSummary(item) {
+  const parts = [];
+  if (item?.issue_type) parts.push(`修正点: ${item.issue_type}`);
+  if (item?.corrected_brand) parts.push(`ブランド: ${item.corrected_brand}`);
+  if (item?.corrected_category) parts.push(`カテゴリ: ${item.corrected_category}`);
+  if (item?.corrected_era) parts.push(`年代: ${item.corrected_era}`);
+  if (item?.corrected_condition) parts.push(`状態: ${item.corrected_condition}`);
+  return parts.join(" / ");
+}
+
+function getResultTextFromItem(item) {
+  return item?.request?.output_json?.result_text || "";
+}
+
 /* ── カラートークン ── */
 const T = {
   bg: "#EDE8DA",
@@ -236,6 +291,7 @@ const NAV = [
   { id: "profit", icon: Calculator, label: "利益計算", desc: "仕入れ価格から利益算出" },
   { id: "auth", icon: Shield, label: "真贋判定", desc: "真贋チェックポイント分析" },
   { id: "reply", icon: MessageCircle, label: "メルカリ返答", desc: "質問対応の返答文生成" },
+  { id: "feedback", icon: MessageCircle, label: "フィードバック管理", desc: "保存済みフィードバックの確認" },
 ];
 
 const CONDITIONS = [
@@ -478,6 +534,14 @@ export default function Home() {
   const [feedbackMessage, setFeedbackMessage] = useState("");
   const [feedbackMessageType, setFeedbackMessageType] = useState("");
 
+  const [feedbackList, setFeedbackList] = useState([]);
+  const [feedbackListLoading, setFeedbackListLoading] = useState(false);
+  const [feedbackListError, setFeedbackListError] = useState("");
+  const [feedbackListTotal, setFeedbackListTotal] = useState(0);
+  const [feedbackListOffset, setFeedbackListOffset] = useState(0);
+  const [feedbackFilterFeatureType, setFeedbackFilterFeatureType] = useState("");
+  const [feedbackFilterRating, setFeedbackFilterRating] = useState("");
+
   useEffect(() => {
     const check = () => {
       const mobile = window.innerWidth < 768;
@@ -588,6 +652,61 @@ export default function Home() {
     }
 
     return data.request_id;
+  };
+
+  const loadFeedbackList = async (
+    customOffset = feedbackListOffset,
+    customFeatureType = feedbackFilterFeatureType,
+    customRating = feedbackFilterRating
+  ) => {
+    setFeedbackListLoading(true);
+    setFeedbackListError("");
+
+    try {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        setFeedbackList([]);
+        setFeedbackListTotal(0);
+        setFeedbackListError("セッション取得に失敗しました。ログインし直して再度お試しください。");
+        setFeedbackListLoading(false);
+        return;
+      }
+
+      const response = await fetch("/api/feedback-list", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+          feature_type: customFeatureType,
+          rating: customRating,
+          limit: FEEDBACK_PAGE_SIZE,
+          offset: customOffset,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data?.ok) {
+        setFeedbackList([]);
+        setFeedbackListTotal(0);
+        setFeedbackListError("フィードバック一覧の取得に失敗しました。");
+        setFeedbackListLoading(false);
+        return;
+      }
+
+      setFeedbackList(Array.isArray(data.items) ? data.items : []);
+      setFeedbackListTotal(Number(data.total || 0));
+      setFeedbackListOffset(customOffset);
+    } catch (err) {
+      setFeedbackList([]);
+      setFeedbackListTotal(0);
+      setFeedbackListError("通信エラーが発生しました。もう一度お試しください。");
+    }
+
+    setFeedbackListLoading(false);
   };
 
   const autoFill = async () => {
@@ -839,6 +958,9 @@ ${images.length > 0
                 onClick={() => {
                   setPage(n.id);
                   resetResultArea();
+                  if (n.id === "feedback") {
+                    loadFeedbackList(0, feedbackFilterFeatureType, feedbackFilterRating);
+                  }
                   if (isMobile) setSidebarOpen(false);
                 }}
                 style={{
@@ -1353,6 +1475,373 @@ ${images.length > 0
                     : <Send size={15} />}
                   {loading ? "生成中..." : "返答文を生成"}
                 </button>
+              </>
+            )}
+
+            {page === "feedback" && (
+              <>
+                <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
+                  <div style={cardTitleStyle}>
+                    <MessageCircle size={15} /> フィードバック一覧
+                  </div>
+
+                  <div
+                    style={{
+                      fontSize: 12,
+                      color: T.textDim,
+                      marginBottom: 16,
+                      padding: "10px 12px",
+                      background: T.surfaceAlt,
+                      border: `1px solid ${T.border}`,
+                      borderRadius: 8,
+                      lineHeight: 1.7,
+                    }}
+                  >
+                    保存済みのフィードバックと、対応する生成内容をあとから見返せます。
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+                    <FieldGroup label="機能で絞り込み">
+                      <select
+                        style={{ ...inputStyle, cursor: "pointer" }}
+                        value={feedbackFilterFeatureType}
+                        onChange={(e) => setFeedbackFilterFeatureType(e.target.value)}
+                      >
+                        <option value="">すべて</option>
+                        <option value="listing">出品文章生成</option>
+                        <option value="analysis">商品分析</option>
+                        <option value="profit">利益計算</option>
+                        <option value="auth">真贋判定</option>
+                        <option value="reply">メルカリ返答</option>
+                      </select>
+                    </FieldGroup>
+
+                    <FieldGroup label="評価で絞り込み">
+                      <select
+                        style={{ ...inputStyle, cursor: "pointer" }}
+                        value={feedbackFilterRating}
+                        onChange={(e) => setFeedbackFilterRating(e.target.value)}
+                      >
+                        <option value="">すべて</option>
+                        <option value="good">良かった</option>
+                        <option value="close">惜しい</option>
+                        <option value="bad">修正が必要</option>
+                      </select>
+                    </FieldGroup>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12 }}>
+                    <button
+                      style={{ ...btnStyle("primary"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
+                      onClick={() => loadFeedbackList(0, feedbackFilterFeatureType, feedbackFilterRating)}
+                      disabled={feedbackListLoading}
+                    >
+                      {feedbackListLoading
+                        ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+                        : <Sparkles size={15} />}
+                      {feedbackListLoading ? "読み込み中..." : "一覧を読み込む"}
+                    </button>
+
+                    <button
+                      style={{ ...btnStyle("ghost"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
+                      onClick={() => {
+                        setFeedbackFilterFeatureType("");
+                        setFeedbackFilterRating("");
+                        loadFeedbackList(0, "", "");
+                      }}
+                      disabled={feedbackListLoading}
+                    >
+                      <RotateCcw size={14} /> 絞り込みをクリア
+                    </button>
+                  </div>
+                </div>
+
+                {feedbackListError && (
+                  <div
+                    style={{
+                      ...cardStyle,
+                      padding: isMobile ? 16 : 24,
+                      background: `${T.danger}10`,
+                      border: `1px solid ${T.danger}40`,
+                      color: T.danger,
+                    }}
+                  >
+                    {feedbackListError}
+                  </div>
+                )}
+
+                {!feedbackListLoading && !feedbackListError && feedbackList.length === 0 && (
+                  <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
+                    <div style={{ fontSize: 13, color: T.textMuted }}>
+                      まだ表示できるフィードバックがありません。上の「一覧を読み込む」を押してください。
+                    </div>
+                  </div>
+                )}
+
+                {feedbackListLoading && (
+                  <div style={{ ...cardStyle, padding: isMobile ? 16 : 24, textAlign: "center" }}>
+                    <Loader2 size={28} color={T.accent} style={{ animation: "spin 1s linear infinite" }} />
+                    <div style={{ fontSize: 13, color: T.textMuted, marginTop: 14 }}>
+                      フィードバック一覧を取得しています…
+                    </div>
+                  </div>
+                )}
+
+                {!feedbackListLoading && !feedbackListError && feedbackList.length > 0 && (
+                  <>
+                    <div
+                      style={{
+                        marginBottom: 16,
+                        fontSize: 12,
+                        color: T.textDim,
+                      }}
+                    >
+                      {feedbackListTotal}件中 {feedbackListOffset + 1}-
+                      {Math.min(feedbackListOffset + feedbackList.length, feedbackListTotal)}件を表示
+                    </div>
+
+                    {feedbackList.map((item) => {
+                      const outputText = getResultTextFromItem(item);
+                      const outputPreview = outputText.length > 600 ? `${outputText.slice(0, 600)}...` : outputText;
+                      const feedbackSummary = buildFeedbackSummary(item);
+
+                      return (
+                        <div key={item.id} style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+                            <div style={cardTitleStyle}>
+                              <MessageCircle size={15} />
+                              {getFeatureLabel(item.feature_type)} / {getRatingLabel(item.rating)}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 11,
+                                color: T.textDim,
+                                padding: "4px 10px",
+                                borderRadius: 20,
+                                border: `1px solid ${T.border}`,
+                                background: T.surfaceAlt,
+                              }}
+                            >
+                              {formatDateTime(item.created_at)}
+                            </div>
+                          </div>
+
+                          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                            <div
+                              style={{
+                                background: T.surfaceAlt,
+                                border: `1px solid ${T.border}`,
+                                borderRadius: 8,
+                                padding: "10px 12px",
+                                fontSize: 12,
+                                lineHeight: 1.7,
+                              }}
+                            >
+                              <div style={{ color: T.textDim, marginBottom: 4 }}>ユーザー</div>
+                              <div style={{ color: T.text }}>
+                                {item.profile?.display_name || "名称未設定"}
+                              </div>
+                              <div style={{ color: T.textMuted }}>
+                                {item.profile?.email || "-"}
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                background: T.surfaceAlt,
+                                border: `1px solid ${T.border}`,
+                                borderRadius: 8,
+                                padding: "10px 12px",
+                                fontSize: 12,
+                                lineHeight: 1.7,
+                              }}
+                            >
+                              <div style={{ color: T.textDim, marginBottom: 4 }}>補足</div>
+                              <div style={{ color: T.text }}>
+                                {item.issue_type || "指定なし"}
+                              </div>
+                              <div style={{ color: T.textMuted }}>
+                                request_id: {item.request_id || "-"}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div
+                            style={{
+                              marginBottom: 14,
+                              background: T.surfaceAlt,
+                              border: `1px solid ${T.border}`,
+                              borderRadius: 8,
+                              padding: "12px 14px",
+                              fontSize: 13,
+                              lineHeight: 1.8,
+                              color: T.text,
+                            }}
+                          >
+                            <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>コメント</div>
+                            {item.comment || "コメントなし"}
+                          </div>
+
+                          {feedbackSummary && (
+                            <div
+                              style={{
+                                marginBottom: 14,
+                                background: `${T.accent}12`,
+                                border: `1px solid ${T.accent}30`,
+                                borderRadius: 8,
+                                padding: "12px 14px",
+                                fontSize: 12,
+                                lineHeight: 1.8,
+                                color: T.text,
+                              }}
+                            >
+                              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>修正情報</div>
+                              {feedbackSummary}
+                            </div>
+                          )}
+
+                          <div
+                            style={{
+                              marginBottom: 14,
+                              background: T.surfaceAlt,
+                              border: `1px solid ${T.border}`,
+                              borderRadius: 8,
+                              padding: "12px 14px",
+                            }}
+                          >
+                            <div style={{ fontSize: 12, color: T.textDim, marginBottom: 8 }}>生成結果プレビュー</div>
+                            <div
+                              style={{
+                                whiteSpace: "pre-wrap",
+                                fontSize: 12,
+                                lineHeight: 1.8,
+                                color: T.text,
+                              }}
+                            >
+                              {outputPreview || "生成結果なし"}
+                            </div>
+                          </div>
+
+                          <details
+                            style={{
+                              background: T.surfaceAlt,
+                              border: `1px solid ${T.border}`,
+                              borderRadius: 8,
+                              padding: "10px 12px",
+                            }}
+                          >
+                            <summary
+                              style={{
+                                cursor: "pointer",
+                                fontSize: 12,
+                                color: T.textMuted,
+                                fontWeight: 600,
+                              }}
+                            >
+                              保存データの詳細を見る
+                            </summary>
+
+                            <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+                              <div>
+                                <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>input_text_json</div>
+                                <pre
+                                  style={{
+                                    margin: 0,
+                                    whiteSpace: "pre-wrap",
+                                    wordBreak: "break-word",
+                                    background: "#efe9d9",
+                                    border: `1px solid ${T.border}`,
+                                    borderRadius: 8,
+                                    padding: 12,
+                                    fontSize: 11,
+                                    lineHeight: 1.7,
+                                    color: T.text,
+                                  }}
+                                >
+                                  {prettyJson(item.request?.input_text_json)}
+                                </pre>
+                              </div>
+
+                              <div>
+                                <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>output_json</div>
+                                <pre
+                                  style={{
+                                    margin: 0,
+                                    whiteSpace: "pre-wrap",
+                                    wordBreak: "break-word",
+                                    background: "#efe9d9",
+                                    border: `1px solid ${T.border}`,
+                                    borderRadius: 8,
+                                    padding: 12,
+                                    fontSize: 11,
+                                    lineHeight: 1.7,
+                                    color: T.text,
+                                  }}
+                                >
+                                  {prettyJson(item.request?.output_json)}
+                                </pre>
+                              </div>
+
+                              <div>
+                                <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>feedback row</div>
+                                <pre
+                                  style={{
+                                    margin: 0,
+                                    whiteSpace: "pre-wrap",
+                                    wordBreak: "break-word",
+                                    background: "#efe9d9",
+                                    border: `1px solid ${T.border}`,
+                                    borderRadius: 8,
+                                    padding: 12,
+                                    fontSize: 11,
+                                    lineHeight: 1.7,
+                                    color: T.text,
+                                  }}
+                                >
+                                  {prettyJson({
+                                    id: item.id,
+                                    request_id: item.request_id,
+                                    feature_type: item.feature_type,
+                                    rating: item.rating,
+                                    issue_type: item.issue_type,
+                                    comment: item.comment,
+                                    corrected_brand: item.corrected_brand,
+                                    corrected_category: item.corrected_category,
+                                    corrected_era: item.corrected_era,
+                                    corrected_condition: item.corrected_condition,
+                                    created_at: item.created_at,
+                                  })}
+                                </pre>
+                              </div>
+                            </div>
+                          </details>
+                        </div>
+                      );
+                    })}
+
+                    <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12, justifyContent: "space-between", alignItems: isMobile ? "stretch" : "center" }}>
+                      <button
+                        style={{ ...btnStyle("ghost"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
+                        onClick={() => loadFeedbackList(Math.max(feedbackListOffset - FEEDBACK_PAGE_SIZE, 0))}
+                        disabled={feedbackListLoading || feedbackListOffset === 0}
+                      >
+                        前の{FEEDBACK_PAGE_SIZE}件
+                      </button>
+
+                      <div style={{ fontSize: 12, color: T.textDim, textAlign: "center" }}>
+                        {feedbackListTotal > 0 ? `${Math.floor(feedbackListOffset / FEEDBACK_PAGE_SIZE) + 1}ページ目` : "0ページ"}
+                      </div>
+
+                      <button
+                        style={{ ...btnStyle("ghost"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
+                        onClick={() => loadFeedbackList(feedbackListOffset + FEEDBACK_PAGE_SIZE)}
+                        disabled={feedbackListLoading || feedbackListOffset + FEEDBACK_PAGE_SIZE >= feedbackListTotal}
+                      >
+                        次の{FEEDBACK_PAGE_SIZE}件
+                      </button>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
