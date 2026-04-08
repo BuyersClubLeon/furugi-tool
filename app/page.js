@@ -1524,7 +1524,6 @@ ${images.length > 0
                     onClick={submitFeedback}
                     disabled={
                       feedbackLoading ||
-                      !requestId ||
                       (!feedback.rating &&
                         !feedback.issueType &&
                         !feedback.comment &&
