@@ -607,6 +607,7 @@ export default function Home() {
 
   const buildInputTextJson = (type) => {
     return {
+      schema_version: 2,
       feature_type: type,
       page,
       form,
