@@ -610,6 +610,11 @@ export default function Home() {
       schema_version: 2,
       feature_type: type,
       page,
+      raw_state: {
+        form,
+        profitForm,
+        replyForm,
+      },
       form,
       profitForm,
       replyForm,
