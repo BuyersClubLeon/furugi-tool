@@ -619,6 +619,7 @@ const buildInputTextJson = (type) => {
       listing: {
         brand: form.brand || "",
         item: form.item || "",
+        era: form.era || "",
       },
     },
     form,
