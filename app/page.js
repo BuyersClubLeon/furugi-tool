@@ -1925,13 +1925,24 @@ ${images.length > 0
                     )}
 
                     {visibleFeedbackList.map((item) => {
-                      const outputText = getResultTextFromItem(item);
-                      const outputPreview = getResultPreviewText(outputText, 260);
-                      const feedbackSummary = buildFeedbackSummary(item);
-                      const isExpanded = feedbackExpandedId === item.id;
-                      const imageCount = getImageCountFromItem(item);
-                      const inputTextJson = item.request?.input_text_json;
-
+                    const outputText = getResultTextFromItem(item);
+const outputPreview = getResultPreviewText(outputText, 260);
+const feedbackSummary = buildFeedbackSummary(item);
+const isExpanded = feedbackExpandedId === item.id;
+const imageCount = getImageCountFromItem(item);
+const inputTextJson = item.request?.input_text_json;
+const listingSummary = inputTextJson?.normalized_input?.listing || {};
+const rawForm = inputTextJson?.raw_state?.form || {};
+const rawProfitForm = inputTextJson?.raw_state?.profitForm || {};
+const rawReplyForm = inputTextJson?.raw_state?.replyForm || {};
+const baseInfoPreview = getResultPreviewText(
+  listingSummary?.baseInfo || rawForm?.baseInfo || "",
+  180
+);
+const replyQuestionPreview = getResultPreviewText(
+  rawReplyForm?.question || "",
+  180
+);
                       return (
                         <div
                           key={item.id}
