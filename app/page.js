@@ -2096,24 +2096,28 @@ const replyQuestionPreview = getResultPreviewText(
                             </div>
 
                             <div
-                              style={{
-                                background: T.surfaceAlt,
-                                border: `1px solid ${T.border}`,
-                                borderRadius: 8,
-                                padding: "12px 14px",
-                                fontSize: 12,
-                                lineHeight: 1.7,
-                              }}
-                            >
-                              <div style={{ color: T.textDim, marginBottom: 4 }}>request_id</div>
-                              <div style={{ color: T.text, fontWeight: 600 }}>
-                                {getShortRequestId(item.request_id)}
-                              </div>
-                              <div style={{ color: T.textMuted }}>
-                                feature_type: {item.feature_type || "-"}
-                              </div>
-                            </div>
-
+  style={{
+    background: T.surfaceAlt,
+    border: `1px solid ${T.border}`,
+    borderRadius: 8,
+    padding: "12px 14px",
+    fontSize: 12,
+    lineHeight: 1.7,
+  }}
+>
+  <div style={{ color: T.textDim, marginBottom: 4 }}>request_id</div>
+  <div style={{ color: T.text, fontWeight: 600 }}>
+    {getShortRequestId(item.request_id)}
+  </div>
+  {item.request_id && (
+    <div style={{ marginTop: 8 }}>
+      <CopyButton text={item.request_id} />
+    </div>
+  )}
+  <div style={{ color: T.textMuted }}>
+    feature_type: {item.feature_type || "-"}
+  </div>
+</div>
                             <div
                               style={{
                                 background: T.surfaceAlt,
