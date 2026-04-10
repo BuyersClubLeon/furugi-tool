@@ -606,6 +606,16 @@ export default function Home() {
   };
 
 const buildInputTextJson = (type) => {
+  const promptNameMap = {
+    listing: "LISTING_PROMPT",
+    analysis: "ANALYSIS_PROMPT",
+    auth: "AUTH_PROMPT",
+    profit: "PROFIT_PROMPT",
+    reply: "REPLY_PROMPT",
+  };
+
+  const usesImages = type !== "profit" && type !== "reply";
+
   return {
     schema_version: 2,
     feature_type: type,
@@ -632,6 +642,28 @@ const buildInputTextJson = (type) => {
         conditionNote: form.conditionNote || "",
         baseInfo: form.baseInfo || "",
       },
+    },
+    prompt_context: {
+      prompt_name: promptNameMap[type] || "",
+      uses_images: usesImages,
+      image_count_for_prompt: usesImages ? images.length : 0,
+    },
+    image_context: {
+      total_count: images.length,
+      files: images.map((img) => ({
+        name: img.name || "",
+        type: img.type || "",
+      })),
+    },
+    ui_context: {
+      current_page: page,
+      is_mobile: isMobile,
+      sidebar_open: sidebarOpen,
+    },
+    save_context: {
+      save_api: "/api/analysis-request",
+      target_table: "analysis_requests",
+      save_feature_type: type,
     },
     form,
     profitForm,
