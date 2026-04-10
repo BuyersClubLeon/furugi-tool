@@ -618,6 +618,7 @@ const buildInputTextJson = (type) => {
     normalized_input: {
       listing: {
         brand: form.brand || "",
+        item: form.item || "",
       },
     },
     form,
@@ -625,7 +626,6 @@ const buildInputTextJson = (type) => {
     replyForm,
   };
 };
-
   const buildInputImagesJson = () => {
     return images.map((img) => ({
       name: img.name,
