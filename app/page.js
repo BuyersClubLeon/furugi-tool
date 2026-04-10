@@ -605,24 +605,26 @@ export default function Home() {
     return data.session?.access_token || "";
   };
 
-  const buildInputTextJson = (type) => {
-    return {
-      schema_version: 2,
-      feature_type: type,
-      page,
-      raw_state: {
-        form,
-        profitForm,
-        replyForm,
-      },
-      normalized_input: {
-        listing: {},
-      },
+const buildInputTextJson = (type) => {
+  return {
+    schema_version: 2,
+    feature_type: type,
+    page,
+    raw_state: {
       form,
       profitForm,
       replyForm,
-    };
+    },
+    normalized_input: {
+      listing: {
+        brand: form.brand || "",
+      },
+    },
+    form,
+    profitForm,
+    replyForm,
   };
+};
 
   const buildInputImagesJson = () => {
     return images.map((img) => ({
