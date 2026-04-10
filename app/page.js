@@ -9,6 +9,55 @@ import {
 } from "lucide-react";
 
 /* ── API呼び出し（サーバーサイドプロキシ経由） ── */
+function safeJsonParse(text) {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function getClaudeErrorMessage(data, status, rawText) {
+  const errorText =
+    typeof data?.error === "string" ? data.error : `API error: ${status}`;
+
+  let detailText = "";
+
+  if (typeof data?.detail === "string") {
+    detailText = data.detail;
+  } else if (data?.detail && typeof data.detail === "object") {
+    if (typeof data.detail?.error?.type === "string") {
+      detailText = data.detail.error.type;
+    } else {
+      try {
+        detailText = JSON.stringify(data.detail);
+      } catch {
+        detailText = "";
+      }
+    }
+  }
+
+  const mergedText = `${errorText} ${detailText}`.toLowerCase();
+
+  if (status === 529 || mergedText.includes("overloaded_error")) {
+    return "現在アクセスが集中しています。少し時間をおいて、もう一度お試しください。";
+  }
+
+  if (!data && rawText) {
+    return `サーバー応答の読み取りに失敗しました: ${rawText.slice(0, 120)}`;
+  }
+
+  return detailText ? `${errorText} / ${detailText}` : errorText;
+}
+
+function isErrorResultText(value) {
+  if (!value) return false;
+  return (
+    value.startsWith("エラー:") ||
+    value.startsWith("写真の自動認識に失敗しました:")
+  );
+}
+
 async function callClaude(systemPrompt, userMessage, images = []) {
   const content = [];
 
@@ -30,10 +79,31 @@ async function callClaude(systemPrompt, userMessage, images = []) {
     }),
   });
 
-  const data = await res.json();
-  if (data.error) throw new Error(data.error);
+  const rawText = await res.text();
+  const data = safeJsonParse(rawText);
 
-  return data.content?.map((b) => b.text || "").join("\n") || "エラーが発生しました";
+  if (!res.ok) {
+    throw new Error(getClaudeErrorMessage(data, res.status, rawText));
+  }
+
+  if (!data || typeof data !== "object") {
+    throw new Error(
+      `サーバー応答の読み取りに失敗しました: ${rawText.slice(0, 120)}`
+    );
+  }
+
+  if (data.error) {
+    throw new Error(getClaudeErrorMessage(data, res.status, rawText));
+  }
+
+  const blocks = Array.isArray(data.content)
+    ? data.content
+        .filter((b) => b?.type === "text")
+        .map((b) => b?.text || "")
+        .filter(Boolean)
+    : [];
+
+  return blocks.join("\n").trim() || "エラーが発生しました";
 }
 
 /* ══════════════════════════════════════════════
@@ -605,71 +675,72 @@ export default function Home() {
     return data.session?.access_token || "";
   };
 
-const buildInputTextJson = (type) => {
-  const promptNameMap = {
-    listing: "LISTING_PROMPT",
-    analysis: "ANALYSIS_PROMPT",
-    auth: "AUTH_PROMPT",
-    profit: "PROFIT_PROMPT",
-    reply: "REPLY_PROMPT",
-  };
+  const buildInputTextJson = (type) => {
+    const promptNameMap = {
+      listing: "LISTING_PROMPT",
+      analysis: "ANALYSIS_PROMPT",
+      auth: "AUTH_PROMPT",
+      profit: "PROFIT_PROMPT",
+      reply: "REPLY_PROMPT",
+    };
 
-  const usesImages = type !== "profit" && type !== "reply";
+    const usesImages = type !== "profit" && type !== "reply";
 
-  return {
-    schema_version: 2,
-    feature_type: type,
-    page,
-    raw_state: {
+    return {
+      schema_version: 2,
+      feature_type: type,
+      page,
+      raw_state: {
+        form,
+        profitForm,
+        replyForm,
+      },
+      normalized_input: {
+        listing: {
+          brand: form.brand || "",
+          item: form.item || "",
+          era: form.era || "",
+          material: form.material || "",
+          color: form.color || "",
+          features: form.features || "",
+          sizeLabel: form.sizeLabel || "",
+          length: form.length || "",
+          width: form.width || "",
+          shoulder: form.shoulder || "",
+          sleeve: form.sleeve || "",
+          condition: form.condition || "",
+          conditionNote: form.conditionNote || "",
+          baseInfo: form.baseInfo || "",
+        },
+      },
+      prompt_context: {
+        prompt_name: promptNameMap[type] || "",
+        uses_images: usesImages,
+        image_count_for_prompt: usesImages ? images.length : 0,
+      },
+      image_context: {
+        total_count: images.length,
+        files: images.map((img) => ({
+          name: img.name || "",
+          type: img.type || "",
+        })),
+      },
+      ui_context: {
+        current_page: page,
+        is_mobile: isMobile,
+        sidebar_open: sidebarOpen,
+      },
+      save_context: {
+        save_api: "/api/analysis-request",
+        target_table: "analysis_requests",
+        save_feature_type: type,
+      },
       form,
       profitForm,
       replyForm,
-    },
-    normalized_input: {
-      listing: {
-        brand: form.brand || "",
-        item: form.item || "",
-        era: form.era || "",
-        material: form.material || "",
-        color: form.color || "",
-        features: form.features || "",
-        sizeLabel: form.sizeLabel || "",
-        length: form.length || "",
-        width: form.width || "",
-        shoulder: form.shoulder || "",
-        sleeve: form.sleeve || "",
-        condition: form.condition || "",
-        conditionNote: form.conditionNote || "",
-        baseInfo: form.baseInfo || "",
-      },
-    },
-    prompt_context: {
-      prompt_name: promptNameMap[type] || "",
-      uses_images: usesImages,
-      image_count_for_prompt: usesImages ? images.length : 0,
-    },
-    image_context: {
-      total_count: images.length,
-      files: images.map((img) => ({
-        name: img.name || "",
-        type: img.type || "",
-      })),
-    },
-    ui_context: {
-      current_page: page,
-      is_mobile: isMobile,
-      sidebar_open: sidebarOpen,
-    },
-    save_context: {
-      save_api: "/api/analysis-request",
-      target_table: "analysis_requests",
-      save_feature_type: type,
-    },
-    form,
-    profitForm,
-    replyForm,
+    };
   };
-};
+
   const buildInputImagesJson = () => {
     return images.map((img) => ({
       name: img.name,
@@ -768,6 +839,7 @@ const buildInputTextJson = (type) => {
     if (images.length === 0) return;
 
     setAnalyzing(true);
+
     try {
       const imgData = images.map((i) => ({ data: i.data, type: i.type }));
       const raw = await callClaude(
@@ -792,10 +864,11 @@ const buildInputTextJson = (type) => {
         conditionNote: parsed.conditionNote || prev.conditionNote,
       }));
     } catch (err) {
-      setResult("写真の自動認識に失敗しました: " + err.message);
+      const message = err instanceof Error ? err.message : "unknown_error";
+      setResult("写真の自動認識に失敗しました: " + message);
+    } finally {
+      setAnalyzing(false);
     }
-
-    setAnalyzing(false);
   };
 
   const generate = async (type) => {
@@ -850,7 +923,7 @@ ${images.length > 0
       const res = await callClaude(
         sys,
         msg,
-        (type !== "profit" && type !== "reply") ? imgData : []
+        type !== "profit" && type !== "reply" ? imgData : []
       );
 
       setResult(res);
@@ -865,10 +938,11 @@ ${images.length > 0
         setRequestSaveError(saveErr.message || "analysis_request_failed");
       }
     } catch (err) {
-      setResult("エラー: " + err.message);
+      const message = err instanceof Error ? err.message : "unknown_error";
+      setResult("エラー: " + message);
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   const submitFeedback = async () => {
@@ -932,6 +1006,7 @@ ${images.length > 0
 
   const nav = NAV.find((n) => n.id === page);
   const generatedNav = NAV.find((n) => n.id === generatedFeatureType);
+  const hasResultError = isErrorResultText(result);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -1904,7 +1979,8 @@ ${images.length > 0
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                   <div style={cardTitleStyle}>
-                    <Sparkles size={15} /> {loading ? "AIが生成中です..." : "生成結果"}
+                    <Sparkles size={15} />
+                    {loading ? "AIが生成中です..." : hasResultError ? "エラー" : "生成結果"}
                   </div>
                   {result && <CopyButton text={result} />}
                 </div>
@@ -1920,7 +1996,7 @@ ${images.length > 0
                   <div
                     style={{
                       background: T.surfaceAlt,
-                      border: `1px solid ${T.border}`,
+                      border: `1px solid ${hasResultError ? T.danger : T.border}`,
                       borderRadius: 10,
                       padding: isMobile ? 14 : 20,
                       whiteSpace: "pre-wrap",
@@ -1928,13 +2004,14 @@ ${images.length > 0
                       lineHeight: 1.8,
                       maxHeight: isMobile ? "none" : 600,
                       overflowY: "auto",
+                      color: hasResultError ? T.danger : T.text,
                     }}
                   >
                     {result}
                   </div>
                 )}
 
-                {!!result && !loading && (
+                {!!result && !loading && !hasResultError && (
                   <div
                     style={{
                       marginTop: 12,
@@ -1955,7 +2032,7 @@ ${images.length > 0
               </div>
             )}
 
-            {!!result && !loading && (
+            {!!result && !loading && !hasResultError && (
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                 <div style={cardTitleStyle}>
                   <MessageCircle size={15} /> この結果のフィードバック
