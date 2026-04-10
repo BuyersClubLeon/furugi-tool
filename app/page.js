@@ -307,6 +307,11 @@ function getRatingLabel(value) {
   return RATING_LABELS[value] || value || "-";
 }
 
+function getIssueLabel(value) {
+  const found = FEEDBACK_ISSUES.find((item) => item.value === value);
+  return found?.label || value || "指定なし";
+}
+
 function formatDateTime(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -325,7 +330,7 @@ function prettyJson(value) {
 
 function buildFeedbackSummary(item) {
   const parts = [];
-  if (item?.issue_type) parts.push(`修正点: ${item.issue_type}`);
+  if (item?.issue_type) parts.push(`修正点: ${getIssueLabel(item.issue_type)}`);
   if (item?.corrected_brand) parts.push(`ブランド: ${item.corrected_brand}`);
   if (item?.corrected_category) parts.push(`カテゴリ: ${item.corrected_category}`);
   if (item?.corrected_era) parts.push(`年代: ${item.corrected_era}`);
@@ -335,6 +340,46 @@ function buildFeedbackSummary(item) {
 
 function getResultTextFromItem(item) {
   return item?.request?.output_json?.result_text || "";
+}
+
+function getResultPreviewText(text, maxLength = 220) {
+  if (!text) return "";
+  return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
+function getImageCountFromItem(item) {
+  return Number(item?.request?.input_text_json?.image_context?.total_count || 0);
+}
+
+function getShortRequestId(value) {
+  if (!value) return "-";
+  if (value.length <= 18) return value;
+  return `${value.slice(0, 8)}...${value.slice(-6)}`;
+}
+
+function buildFeedbackSearchTarget(item) {
+  const baseListing = item?.request?.input_text_json?.normalized_input?.listing;
+  const pieces = [
+    getFeatureLabel(item?.feature_type),
+    getRatingLabel(item?.rating),
+    getIssueLabel(item?.issue_type),
+    item?.comment || "",
+    item?.corrected_brand || "",
+    item?.corrected_category || "",
+    item?.corrected_era || "",
+    item?.corrected_condition || "",
+    item?.profile?.display_name || "",
+    item?.profile?.email || "",
+    item?.request_id || "",
+    getResultTextFromItem(item),
+    baseListing?.brand || "",
+    baseListing?.item || "",
+    baseListing?.era || "",
+    baseListing?.color || "",
+    baseListing?.features || "",
+  ];
+
+  return pieces.join(" ").toLowerCase();
 }
 
 /* ── カラートークン ── */
@@ -611,6 +656,8 @@ export default function Home() {
   const [feedbackListOffset, setFeedbackListOffset] = useState(0);
   const [feedbackFilterFeatureType, setFeedbackFilterFeatureType] = useState("");
   const [feedbackFilterRating, setFeedbackFilterRating] = useState("");
+  const [feedbackSearchText, setFeedbackSearchText] = useState("");
+  const [feedbackExpandedId, setFeedbackExpandedId] = useState("");
 
   useEffect(() => {
     const check = () => {
@@ -787,6 +834,7 @@ export default function Home() {
   ) => {
     setFeedbackListLoading(true);
     setFeedbackListError("");
+    setFeedbackExpandedId("");
 
     try {
       const accessToken = await getAccessToken();
@@ -1007,6 +1055,24 @@ ${images.length > 0
   const nav = NAV.find((n) => n.id === page);
   const generatedNav = NAV.find((n) => n.id === generatedFeatureType);
   const hasResultError = isErrorResultText(result);
+
+  const normalizedFeedbackSearchText = feedbackSearchText.trim().toLowerCase();
+
+  const visibleFeedbackList = feedbackList.filter((item) => {
+    if (!normalizedFeedbackSearchText) return true;
+    return buildFeedbackSearchTarget(item).includes(normalizedFeedbackSearchText);
+  });
+
+  const feedbackStats = feedbackList.reduce(
+    (acc, item) => {
+      acc.total += 1;
+      if (item?.rating === "good") acc.good += 1;
+      if (item?.rating === "close") acc.close += 1;
+      if (item?.rating === "bad") acc.bad += 1;
+      return acc;
+    },
+    { total: 0, good: 0, close: 0, bad: 0 }
+  );
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -1627,7 +1693,8 @@ ${images.length > 0
                       lineHeight: 1.7,
                     }}
                   >
-                    保存済みのフィードバックと、対応する生成内容をあとから見返せます。
+                    保存済みのフィードバックと、対応する生成内容をあとから見返せます。<br />
+                    今回は、一覧内検索と詳細の開閉表示を追加しています。
                   </div>
 
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
@@ -1660,6 +1727,26 @@ ${images.length > 0
                     </FieldGroup>
                   </div>
 
+                  <FieldGroup label="一覧内キーワード検索">
+                    <input
+                      style={inputStyle}
+                      placeholder="ブランド名 / コメント / request_id / メールアドレス などで検索"
+                      value={feedbackSearchText}
+                      onChange={(e) => setFeedbackSearchText(e.target.value)}
+                    />
+                  </FieldGroup>
+
+                  <div
+                    style={{
+                      fontSize: 11,
+                      color: T.textDim,
+                      marginTop: -6,
+                      marginBottom: 14,
+                    }}
+                  >
+                    ※ この検索は、今読み込んでいる一覧だけを対象にします
+                  </div>
+
                   <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12 }}>
                     <button
                       style={{ ...btnStyle("primary"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
@@ -1677,6 +1764,8 @@ ${images.length > 0
                       onClick={() => {
                         setFeedbackFilterFeatureType("");
                         setFeedbackFilterRating("");
+                        setFeedbackSearchText("");
+                        setFeedbackExpandedId("");
                         loadFeedbackList(0, "", "");
                       }}
                       disabled={feedbackListLoading}
@@ -1721,54 +1810,224 @@ ${images.length > 0
                   <>
                     <div
                       style={{
-                        marginBottom: 16,
-                        fontSize: 12,
-                        color: T.textDim,
+                        ...cardStyle,
+                        padding: isMobile ? 16 : 20,
                       }}
                     >
-                      {feedbackListTotal}件中 {feedbackListOffset + 1}-
-                      {Math.min(feedbackListOffset + feedbackList.length, feedbackListTotal)}件を表示
+                      <div style={{ fontSize: 12, color: T.textDim, marginBottom: 10 }}>
+                        {feedbackListTotal}件中 {feedbackListOffset + 1}-
+                        {Math.min(feedbackListOffset + feedbackList.length, feedbackListTotal)}件を表示 /
+                        画面内一致 {visibleFeedbackList.length}件
+                      </div>
+
+                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                        <div
+                          style={{
+                            padding: "8px 12px",
+                            borderRadius: 999,
+                            background: T.surfaceAlt,
+                            border: `1px solid ${T.border}`,
+                            fontSize: 12,
+                            color: T.text,
+                          }}
+                        >
+                          読み込み件数: {feedbackStats.total}
+                        </div>
+                        <div
+                          style={{
+                            padding: "8px 12px",
+                            borderRadius: 999,
+                            background: `${T.success}12`,
+                            border: `1px solid ${T.success}35`,
+                            fontSize: 12,
+                            color: T.success,
+                          }}
+                        >
+                          良かった: {feedbackStats.good}
+                        </div>
+                        <div
+                          style={{
+                            padding: "8px 12px",
+                            borderRadius: 999,
+                            background: `${T.warning}12`,
+                            border: `1px solid ${T.warning}35`,
+                            fontSize: 12,
+                            color: T.warning,
+                          }}
+                        >
+                          惜しい: {feedbackStats.close}
+                        </div>
+                        <div
+                          style={{
+                            padding: "8px 12px",
+                            borderRadius: 999,
+                            background: `${T.danger}12`,
+                            border: `1px solid ${T.danger}35`,
+                            fontSize: 12,
+                            color: T.danger,
+                          }}
+                        >
+                          修正が必要: {feedbackStats.bad}
+                        </div>
+                      </div>
                     </div>
 
-                    {feedbackList.map((item) => {
+                    {visibleFeedbackList.length === 0 && (
+                      <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
+                        <div style={{ fontSize: 13, color: T.textMuted }}>
+                          一覧は読み込めていますが、検索条件に一致するフィードバックがありません。
+                        </div>
+                      </div>
+                    )}
+
+                    {visibleFeedbackList.map((item) => {
                       const outputText = getResultTextFromItem(item);
-                      const outputPreview = outputText.length > 600 ? `${outputText.slice(0, 600)}...` : outputText;
+                      const outputPreview = getResultPreviewText(outputText, 260);
                       const feedbackSummary = buildFeedbackSummary(item);
+                      const isExpanded = feedbackExpandedId === item.id;
+                      const imageCount = getImageCountFromItem(item);
+                      const inputTextJson = item.request?.input_text_json;
 
                       return (
-                        <div key={item.id} style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
-                            <div style={cardTitleStyle}>
-                              <MessageCircle size={15} />
-                              {getFeatureLabel(item.feature_type)} / {getRatingLabel(item.rating)}
+                        <div
+                          key={item.id}
+                          style={{
+                            ...cardStyle,
+                            padding: isMobile ? 16 : 24,
+                            border: isExpanded ? `1px solid ${T.accent}` : `1px solid ${T.border}`,
+                            boxShadow: isExpanded ? "0 0 0 2px rgba(197,164,75,0.08)" : "none",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "flex-start",
+                              gap: 12,
+                              marginBottom: 14,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                              <div
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 999,
+                                  background: `${T.accent}16`,
+                                  border: `1px solid ${T.accent}35`,
+                                  fontSize: 12,
+                                  color: T.accent,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {getFeatureLabel(item.feature_type)}
+                              </div>
+
+                              <div
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 999,
+                                  background:
+                                    item.rating === "good"
+                                      ? `${T.success}14`
+                                      : item.rating === "bad"
+                                      ? `${T.danger}14`
+                                      : `${T.warning}14`,
+                                  border:
+                                    item.rating === "good"
+                                      ? `1px solid ${T.success}35`
+                                      : item.rating === "bad"
+                                      ? `1px solid ${T.danger}35`
+                                      : `1px solid ${T.warning}35`,
+                                  fontSize: 12,
+                                  color:
+                                    item.rating === "good"
+                                      ? T.success
+                                      : item.rating === "bad"
+                                      ? T.danger
+                                      : T.warning,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {getRatingLabel(item.rating)}
+                              </div>
+
+                              <div
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 999,
+                                  background: T.surfaceAlt,
+                                  border: `1px solid ${T.border}`,
+                                  fontSize: 12,
+                                  color: T.textMuted,
+                                }}
+                              >
+                                {getIssueLabel(item.issue_type)}
+                              </div>
+
+                              <div
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 999,
+                                  background: T.surfaceAlt,
+                                  border: `1px solid ${T.border}`,
+                                  fontSize: 12,
+                                  color: T.textDim,
+                                }}
+                              >
+                                画像 {imageCount}枚
+                              </div>
                             </div>
-                            <div
-                              style={{
-                                fontSize: 11,
-                                color: T.textDim,
-                                padding: "4px 10px",
-                                borderRadius: 20,
-                                border: `1px solid ${T.border}`,
-                                background: T.surfaceAlt,
-                              }}
-                            >
-                              {formatDateTime(item.created_at)}
+
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                              <div
+                                style={{
+                                  fontSize: 11,
+                                  color: T.textDim,
+                                  padding: "6px 10px",
+                                  borderRadius: 999,
+                                  border: `1px solid ${T.border}`,
+                                  background: T.surfaceAlt,
+                                }}
+                              >
+                                {formatDateTime(item.created_at)}
+                              </div>
+
+                              <button
+                                onClick={() =>
+                                  setFeedbackExpandedId((prev) => (prev === item.id ? "" : item.id))
+                                }
+                                style={{
+                                  ...btnStyle("ghost"),
+                                  padding: "8px 12px",
+                                  fontSize: 12,
+                                }}
+                              >
+                                {isExpanded ? "詳細を閉じる" : "詳細を開く"}
+                              </button>
                             </div>
                           </div>
 
-                          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 14 }}>
+                          <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: isMobile ? "1fr" : "1.1fr 1fr 1fr",
+                              gap: 12,
+                              marginBottom: 14,
+                            }}
+                          >
                             <div
                               style={{
                                 background: T.surfaceAlt,
                                 border: `1px solid ${T.border}`,
                                 borderRadius: 8,
-                                padding: "10px 12px",
+                                padding: "12px 14px",
                                 fontSize: 12,
                                 lineHeight: 1.7,
                               }}
                             >
                               <div style={{ color: T.textDim, marginBottom: 4 }}>ユーザー</div>
-                              <div style={{ color: T.text }}>
+                              <div style={{ color: T.text, fontWeight: 600 }}>
                                 {item.profile?.display_name || "名称未設定"}
                               </div>
                               <div style={{ color: T.textMuted }}>
@@ -1781,38 +2040,82 @@ ${images.length > 0
                                 background: T.surfaceAlt,
                                 border: `1px solid ${T.border}`,
                                 borderRadius: 8,
-                                padding: "10px 12px",
+                                padding: "12px 14px",
+                                fontSize: 12,
+                                lineHeight: 1.7,
+                              }}
+                            >
+                              <div style={{ color: T.textDim, marginBottom: 4 }}>request_id</div>
+                              <div style={{ color: T.text, fontWeight: 600 }}>
+                                {getShortRequestId(item.request_id)}
+                              </div>
+                              <div style={{ color: T.textMuted }}>
+                                feature_type: {item.feature_type || "-"}
+                              </div>
+                            </div>
+
+                            <div
+                              style={{
+                                background: T.surfaceAlt,
+                                border: `1px solid ${T.border}`,
+                                borderRadius: 8,
+                                padding: "12px 14px",
                                 fontSize: 12,
                                 lineHeight: 1.7,
                               }}
                             >
                               <div style={{ color: T.textDim, marginBottom: 4 }}>補足</div>
-                              <div style={{ color: T.text }}>
-                                {item.issue_type || "指定なし"}
+                              <div style={{ color: T.text, fontWeight: 600 }}>
+                                {getIssueLabel(item.issue_type)}
                               </div>
                               <div style={{ color: T.textMuted }}>
-                                request_id: {item.request_id || "-"}
+                                schema: {inputTextJson?.schema_version || "-"}
                               </div>
                             </div>
                           </div>
 
                           <div
                             style={{
+                              display: "grid",
+                              gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr",
+                              gap: 12,
                               marginBottom: 14,
-                              background: T.surfaceAlt,
-                              border: `1px solid ${T.border}`,
-                              borderRadius: 8,
-                              padding: "12px 14px",
-                              fontSize: 13,
-                              lineHeight: 1.8,
-                              color: T.text,
                             }}
                           >
-                            <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>コメント</div>
-                            {item.comment || "コメントなし"}
+                            <div
+                              style={{
+                                background: T.surfaceAlt,
+                                border: `1px solid ${T.border}`,
+                                borderRadius: 8,
+                                padding: "12px 14px",
+                                fontSize: 13,
+                                lineHeight: 1.8,
+                                color: T.text,
+                              }}
+                            >
+                              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>コメント</div>
+                              {item.comment || "コメントなし"}
+                            </div>
+
+                            <div
+                              style={{
+                                background: T.surfaceAlt,
+                                border: `1px solid ${T.border}`,
+                                borderRadius: 8,
+                                padding: "12px 14px",
+                                fontSize: 12,
+                                lineHeight: 1.8,
+                                color: T.text,
+                              }}
+                            >
+                              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>生成結果プレビュー</div>
+                              <div style={{ whiteSpace: "pre-wrap" }}>
+                                {outputPreview || "生成結果なし"}
+                              </div>
+                            </div>
                           </div>
 
-                          {feedbackSummary && (
+                          {!!feedbackSummary && (
                             <div
                               style={{
                                 marginBottom: 14,
@@ -1830,48 +2133,82 @@ ${images.length > 0
                             </div>
                           )}
 
-                          <div
-                            style={{
-                              marginBottom: 14,
-                              background: T.surfaceAlt,
-                              border: `1px solid ${T.border}`,
-                              borderRadius: 8,
-                              padding: "12px 14px",
-                            }}
-                          >
-                            <div style={{ fontSize: 12, color: T.textDim, marginBottom: 8 }}>生成結果プレビュー</div>
+                          {isExpanded && (
                             <div
                               style={{
-                                whiteSpace: "pre-wrap",
-                                fontSize: 12,
-                                lineHeight: 1.8,
-                                color: T.text,
+                                display: "grid",
+                                gap: 12,
+                                marginTop: 12,
                               }}
                             >
-                              {outputPreview || "生成結果なし"}
-                            </div>
-                          </div>
+                              <div
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4, 1fr)",
+                                  gap: 10,
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    background: "#efe9d9",
+                                    border: `1px solid ${T.border}`,
+                                    borderRadius: 8,
+                                    padding: "10px 12px",
+                                    fontSize: 12,
+                                  }}
+                                >
+                                  <div style={{ color: T.textDim, marginBottom: 4 }}>page</div>
+                                  <div style={{ color: T.text, fontWeight: 600 }}>
+                                    {inputTextJson?.page || "-"}
+                                  </div>
+                                </div>
 
-                          <details
-                            style={{
-                              background: T.surfaceAlt,
-                              border: `1px solid ${T.border}`,
-                              borderRadius: 8,
-                              padding: "10px 12px",
-                            }}
-                          >
-                            <summary
-                              style={{
-                                cursor: "pointer",
-                                fontSize: 12,
-                                color: T.textMuted,
-                                fontWeight: 600,
-                              }}
-                            >
-                              保存データの詳細を見る
-                            </summary>
+                                <div
+                                  style={{
+                                    background: "#efe9d9",
+                                    border: `1px solid ${T.border}`,
+                                    borderRadius: 8,
+                                    padding: "10px 12px",
+                                    fontSize: 12,
+                                  }}
+                                >
+                                  <div style={{ color: T.textDim, marginBottom: 4 }}>uses_images</div>
+                                  <div style={{ color: T.text, fontWeight: 600 }}>
+                                    {String(inputTextJson?.prompt_context?.uses_images ?? "-")}
+                                  </div>
+                                </div>
 
-                            <div style={{ marginTop: 12, display: "grid", gap: 12 }}>
+                                <div
+                                  style={{
+                                    background: "#efe9d9",
+                                    border: `1px solid ${T.border}`,
+                                    borderRadius: 8,
+                                    padding: "10px 12px",
+                                    fontSize: 12,
+                                  }}
+                                >
+                                  <div style={{ color: T.textDim, marginBottom: 4 }}>image_count</div>
+                                  <div style={{ color: T.text, fontWeight: 600 }}>
+                                    {inputTextJson?.prompt_context?.image_count_for_prompt ?? 0}
+                                  </div>
+                                </div>
+
+                                <div
+                                  style={{
+                                    background: "#efe9d9",
+                                    border: `1px solid ${T.border}`,
+                                    borderRadius: 8,
+                                    padding: "10px 12px",
+                                    fontSize: 12,
+                                  }}
+                                >
+                                  <div style={{ color: T.textDim, marginBottom: 4 }}>current_page</div>
+                                  <div style={{ color: T.text, fontWeight: 600 }}>
+                                    {inputTextJson?.ui_context?.current_page || "-"}
+                                  </div>
+                                </div>
+                              </div>
+
                               <div>
                                 <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>input_text_json</div>
                                 <pre
@@ -1886,6 +2223,8 @@ ${images.length > 0
                                     fontSize: 11,
                                     lineHeight: 1.7,
                                     color: T.text,
+                                    maxHeight: 260,
+                                    overflowY: "auto",
                                   }}
                                 >
                                   {prettyJson(item.request?.input_text_json)}
@@ -1906,6 +2245,8 @@ ${images.length > 0
                                     fontSize: 11,
                                     lineHeight: 1.7,
                                     color: T.text,
+                                    maxHeight: 220,
+                                    overflowY: "auto",
                                   }}
                                 >
                                   {prettyJson(item.request?.output_json)}
@@ -1926,6 +2267,8 @@ ${images.length > 0
                                     fontSize: 11,
                                     lineHeight: 1.7,
                                     color: T.text,
+                                    maxHeight: 220,
+                                    overflowY: "auto",
                                   }}
                                 >
                                   {prettyJson({
@@ -1944,7 +2287,7 @@ ${images.length > 0
                                 </pre>
                               </div>
                             </div>
-                          </details>
+                          )}
                         </div>
                       );
                     })}
