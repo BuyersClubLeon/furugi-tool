@@ -615,6 +615,9 @@ export default function Home() {
         profitForm,
         replyForm,
       },
+      normalized_input: {
+        listing: {},
+      },
       form,
       profitForm,
       replyForm,
