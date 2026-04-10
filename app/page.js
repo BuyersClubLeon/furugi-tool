@@ -2063,7 +2063,14 @@ const replyQuestionPreview = getResultPreviewText(
                             </div>
                           </div>
 
-                      marginBottom: 14,
+                                               <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: isMobile ? "1fr" : "1.1fr 1fr 1fr",
+                              gap: 12,
+                              marginBottom: 14,
+                            }}
+                          >
                             <div
                               style={{
                                 background: T.surfaceAlt,
