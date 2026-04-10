@@ -2068,6 +2068,11 @@ const replyQuestionPreview = getResultPreviewText(
                               display: "grid",
                               gridTemplateColumns: isMobile ? "1fr" : "1.1fr 1fr 1fr",
                               gap: 12,
+                                           <div
+                            style={{
+                              display: "grid",
+                              gridTemplateColumns: isMobile ? "1fr" : "1.1fr 1fr 1fr",
+                              gap: 12,
                               marginBottom: 14,
                             }}
                           >
