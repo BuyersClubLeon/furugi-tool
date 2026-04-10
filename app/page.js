@@ -358,28 +358,72 @@ function getShortRequestId(value) {
 }
 
 function buildFeedbackSearchTarget(item) {
-  const baseListing = item?.request?.input_text_json?.normalized_input?.listing;
+  const inputTextJson = item?.request?.input_text_json;
+  const baseListing = inputTextJson?.normalized_input?.listing;
+  const rawForm = inputTextJson?.raw_state?.form;
+  const rawProfitForm = inputTextJson?.raw_state?.profitForm;
+  const rawReplyForm = inputTextJson?.raw_state?.replyForm;
+
   const pieces = [
     getFeatureLabel(item?.feature_type),
     getRatingLabel(item?.rating),
     getIssueLabel(item?.issue_type),
+
     item?.comment || "",
     item?.corrected_brand || "",
     item?.corrected_category || "",
     item?.corrected_era || "",
     item?.corrected_condition || "",
+
     item?.profile?.display_name || "",
     item?.profile?.email || "",
     item?.request_id || "",
+
     getResultTextFromItem(item),
+
+    inputTextJson?.page || "",
+    inputTextJson?.feature_type || "",
+    inputTextJson?.prompt_context?.prompt_name || "",
+    inputTextJson?.prompt_context?.uses_images ? "uses_images true" : "uses_images false",
+    String(inputTextJson?.prompt_context?.image_count_for_prompt ?? ""),
+
     baseListing?.brand || "",
     baseListing?.item || "",
     baseListing?.era || "",
+    baseListing?.material || "",
     baseListing?.color || "",
     baseListing?.features || "",
+    baseListing?.sizeLabel || "",
+    baseListing?.length || "",
+    baseListing?.width || "",
+    baseListing?.shoulder || "",
+    baseListing?.sleeve || "",
+    baseListing?.condition || "",
+    baseListing?.conditionNote || "",
+    baseListing?.baseInfo || "",
+
+    rawForm?.brand || "",
+    rawForm?.item || "",
+    rawForm?.era || "",
+    rawForm?.material || "",
+    rawForm?.color || "",
+    rawForm?.features || "",
+    rawForm?.sizeLabel || "",
+    rawForm?.length || "",
+    rawForm?.width || "",
+    rawForm?.shoulder || "",
+    rawForm?.sleeve || "",
+    rawForm?.condition || "",
+    rawForm?.conditionNote || "",
+    rawForm?.baseInfo || "",
+
+    rawProfitForm?.purchasePrice || "",
+    rawProfitForm?.shipping || "",
+
+    rawReplyForm?.question || "",
   ];
 
-  return pieces.join(" ").toLowerCase();
+  return pieces.map((value) => String(value)).join(" ").toLowerCase();
 }
 
 /* ── カラートークン ── */
@@ -1694,7 +1738,7 @@ ${images.length > 0
                     }}
                   >
                     保存済みのフィードバックと、対応する生成内容をあとから見返せます。<br />
-                    今回は、一覧内検索と詳細の開閉表示を追加しています。
+                    今回は、一覧内検索の対象を増やしています。
                   </div>
 
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
@@ -1730,7 +1774,7 @@ ${images.length > 0
                   <FieldGroup label="一覧内キーワード検索">
                     <input
                       style={inputStyle}
-                      placeholder="ブランド名 / コメント / request_id / メールアドレス などで検索"
+                      placeholder="ブランド名 / アイテム名 / 年代 / 素材 / サイズ / 実寸 / 状態 / コメント / request_id / メールアドレス などで検索"
                       value={feedbackSearchText}
                       onChange={(e) => setFeedbackSearchText(e.target.value)}
                     />
@@ -1744,7 +1788,7 @@ ${images.length > 0
                       marginBottom: 14,
                     }}
                   >
-                    ※ この検索は、今読み込んでいる一覧だけを対象にします
+                    ※ この検索は、今読み込んでいる一覧だけを対象にします。素材・サイズ・実寸・状態・ベース情報・corrected項目も検索対象です
                   </div>
 
                   <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12 }}>
