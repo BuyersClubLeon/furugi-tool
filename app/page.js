@@ -621,6 +621,7 @@ const buildInputTextJson = (type) => {
         item: form.item || "",
         era: form.era || "",
         material: form.material || "",
+        color: form.color || "",
       },
     },
     form,
