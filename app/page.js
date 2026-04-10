@@ -2189,7 +2189,6 @@ const replyQuestionPreview = getResultPreviewText(
                           )}
 
                           {isExpanded && (
-        {isExpanded && (
   <div
     style={{
       display: "grid",
