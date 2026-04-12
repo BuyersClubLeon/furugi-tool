@@ -700,8 +700,9 @@ export default function Home() {
   const [feedbackListOffset, setFeedbackListOffset] = useState(0);
   const [feedbackFilterFeatureType, setFeedbackFilterFeatureType] = useState("");
   const [feedbackFilterRating, setFeedbackFilterRating] = useState("");
-  const [feedbackSearchText, setFeedbackSearchText] = useState("");
-  const [feedbackExpandedId, setFeedbackExpandedId] = useState("");
+ const [feedbackSearchText, setFeedbackSearchText] = useState("");
+const [feedbackExpandedId, setFeedbackExpandedId] = useState("");
+const [feedbackOutputExpandedId, setFeedbackOutputExpandedId] = useState("");
 
   useEffect(() => {
     const check = () => {
