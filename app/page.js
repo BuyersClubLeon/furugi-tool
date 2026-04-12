@@ -2541,29 +2541,56 @@ const replyQuestionPreview = getResultPreviewText(
       </pre>
     </div>
 
-    <div>
-      <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>
-        output_json
-      </div>
-      <pre
-        style={{
-          margin: 0,
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
-          background: "#efe9d9",
-          border: `1px solid ${T.border}`,
-          borderRadius: 8,
-          padding: 12,
-          fontSize: 11,
-          lineHeight: 1.7,
-          color: T.text,
-          maxHeight: 220,
-          overflowY: "auto",
-        }}
-      >
-        {prettyJson(item.request?.output_json)}
-      </pre>
+  <div>
+  <div
+    style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      gap: 8,
+      marginBottom: 6,
+      flexWrap: "wrap",
+    }}
+  >
+    <div style={{ fontSize: 12, color: T.textDim }}>
+      output_json
     </div>
+
+    <button
+      onClick={() =>
+        setFeedbackOutputExpandedId((prev) =>
+          prev === item.id ? "" : item.id
+        )
+      }
+      style={{
+        ...btnStyle("ghost"),
+        padding: "6px 10px",
+        fontSize: 11,
+      }}
+    >
+      {feedbackOutputExpandedId === item.id ? "閉じる" : "全文を表示"}
+    </button>
+  </div>
+
+  <pre
+    style={{
+      margin: 0,
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+      background: "#efe9d9",
+      border: `1px solid ${T.border}`,
+      borderRadius: 8,
+      padding: 12,
+      fontSize: 11,
+      lineHeight: 1.7,
+      color: T.text,
+      maxHeight: feedbackOutputExpandedId === item.id ? "none" : 220,
+      overflowY: feedbackOutputExpandedId === item.id ? "visible" : "auto",
+    }}
+  >
+    {prettyJson(item.request?.output_json)}
+  </pre>
+</div>
 
     <div>
       <div style={{ fontSize: 12, color: T.textDim, marginBottom: 6 }}>
