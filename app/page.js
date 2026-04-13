@@ -725,40 +725,41 @@ useEffect(() => {
 useEffect(() => {
   const supabase = createSupabaseBrowser();
 
-  const loadFeedbackPermission = async (nextUserId) => {
-    try {
-      let userId = nextUserId;
+const loadFeedbackPermission = async (nextUserId) => {
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-      if (!userId) {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
-
-        if (userError || !user?.id) {
-          setIsAdmin(false);
-          return;
-        }
-
-        userId = user.id;
-      }
-
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", userId)
-        .maybeSingle();
-
-      if (profileError) {
-        setIsAdmin(false);
-        return;
-      }
-
-      setIsAdmin(profile?.role === "admin");
-    } catch {
+    const accessToken = session?.access_token;
+    if (sessionError || !accessToken) {
       setIsAdmin(false);
+      return;
     }
-  };
+
+    const res = await fetch("/api/feedback-list", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        access_token: accessToken,
+        limit: 1,
+        offset: 0,
+      }),
+    });
+
+    if (res.status === 200) {
+      setIsAdmin(true);
+      return;
+    }
+
+    setIsAdmin(false);
+  } catch {
+    setIsAdmin(false);
+  }
+};
 
   loadFeedbackPermission();
 
