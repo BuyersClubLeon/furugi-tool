@@ -697,43 +697,87 @@ export default function Home() {
   const [feedbackListLoading, setFeedbackListLoading] = useState(false);
   const [feedbackListError, setFeedbackListError] = useState("");
   const [feedbackListTotal, setFeedbackListTotal] = useState(0);
-  const [feedbackListOffset, setFeedbackListOffset] = useState(0);
-  const [feedbackFilterFeatureType, setFeedbackFilterFeatureType] = useState("");
-  const [feedbackFilterRating, setFeedbackFilterRating] = useState("");
- const [feedbackSearchText, setFeedbackSearchText] = useState("");
+const [feedbackListOffset, setFeedbackListOffset] = useState(0);
+const [feedbackFilterFeatureType, setFeedbackFilterFeatureType] = useState("");
+const [feedbackFilterRating, setFeedbackFilterRating] = useState("");
+const [feedbackSearchText, setFeedbackSearchText] = useState("");
 const [feedbackExpandedId, setFeedbackExpandedId] = useState("");
 const [feedbackOutputExpandedId, setFeedbackOutputExpandedId] = useState("");
+const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    const check = () => {
-      const mobile = window.innerWidth < 768;
-      setIsMobile(mobile);
-      if (!mobile) setSidebarOpen(true);
-      if (mobile) setSidebarOpen(false);
-    };
+const visibleNav = isAdmin
+  ? NAV
+  : NAV.filter((item) => item.id !== "feedback");
 
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
+useEffect(() => {
+  const check = () => {
+    const mobile = window.innerWidth < 768;
+    setIsMobile(mobile);
+    if (!mobile) setSidebarOpen(true);
+    if (mobile) setSidebarOpen(false);
+  };
 
-  const [form, setForm] = useState({
-    brand: "",
-    item: "",
-    era: "",
-    material: "",
-    color: "",
-    features: "",
-    sizeLabel: "",
-    length: "",
-    width: "",
-    shoulder: "",
-    sleeve: "",
-    condition: "A",
-    conditionNote: "",
-    baseInfo: "",
-  });
+  check();
+  window.addEventListener("resize", check);
+  return () => window.removeEventListener("resize", check);
+}, []);
 
+useEffect(() => {
+  const loadFeedbackPermission = async () => {
+    try {
+      const supabase = createSupabaseBrowser();
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user?.id) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(profile?.role === "admin");
+    } catch {
+      setIsAdmin(false);
+    }
+  };
+
+  loadFeedbackPermission();
+}, []);
+
+useEffect(() => {
+  if (!isAdmin && page === "feedback") {
+    setPage("listing");
+  }
+}, [isAdmin, page]);
+
+const [form, setForm] = useState({
+  brand: "",
+  item: "",
+  era: "",
+  material: "",
+  color: "",
+  features: "",
+  sizeLabel: "",
+  length: "",
+  width: "",
+  shoulder: "",
+  sleeve: "",
+  condition: "A",
+  conditionNote: "",
+  baseInfo: "",
+});
   const [profitForm, setProfitForm] = useState({
     purchasePrice: "",
     shipping: "1000",
