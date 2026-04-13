@@ -124,37 +124,43 @@ let feedbackQuery = supabaseAdmin
       ),
     ];
 
-    const [{ data: requestRows, error: requestError }, { data: profileRows, error: profileError }] =
-      await Promise.all([
-        supabaseAdmin
-          .from("analysis_requests")
-          .select(`
-            id,
-            feature_type,
-            input_images_json,
-            input_text_json,
-            output_json,
-            created_at
-          `)
-          .in("id", requestIds),
-        supabaseAdmin
-          .from("profiles")
-          .select(`
-            id,
-            email,
-            display_name,
-            role
-          `)
-          .in("id", userIds),
-      ]);
+   const [{ data: requestRows, error: requestError }, { data: profileRows, error: profileRowsError }] =
+  await Promise.all([
+    supabaseAdmin
+      .from("analysis_requests")
+      .select(`
+        id,
+        feature_type,
+        input_images_json,
+        input_text_json,
+        output_json,
+        created_at
+      `)
+      .in("id", requestIds),
+    supabaseAdmin
+      .from("profiles")
+      .select(`
+        id,
+        email,
+        display_name,
+        role
+      `)
+      .in("id", userIds),
+  ]);
 
-    if (requestError) {
-      return NextResponse.json(
-        { error: "analysis_requests_read_failed" },
-        { status: 500 }
-      );
-    }
+if (requestError) {
+  return NextResponse.json(
+    { error: "analysis_requests_read_failed" },
+    { status: 500 }
+  );
+}
 
+if (profileRowsError) {
+  return NextResponse.json(
+    { error: "profiles_read_failed" },
+    { status: 500 }
+  );
+}
     if (profileError) {
       return NextResponse.json(
         { error: "profiles_read_failed" },
