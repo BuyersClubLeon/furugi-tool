@@ -715,7 +715,90 @@ export default function Home() {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+useEffect(() => {
+  const check = () => {
+    const mobile = window.innerWidth < 768;
+    setIsMobile(mobile);
+    if (!mobile) setSidebarOpen(true);
+    if (mobile) setSidebarOpen(false);
+  };
 
+  check();
+  window.addEventListener("resize", check);
+  return () => window.removeEventListener("resize", check);
+}, []);
+
+const [isAdmin, setIsAdmin] = useState(false);
+
+const visibleNav = isAdmin
+  ? NAV
+  : NAV.filter((item) => item.id !== "feedback");
+
+useEffect(() => {
+  const supabase = createSupabaseBrowser();
+
+  const loadFeedbackPermission = async (nextUserId) => {
+    try {
+      let userId = nextUserId;
+
+      if (!userId) {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user?.id) {
+          setIsAdmin(false);
+          return;
+        }
+
+        userId = user.id;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .maybeSingle();
+
+      if (profileError) {
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(profile?.role === "admin");
+    } catch {
+      setIsAdmin(false);
+    }
+  };
+
+  loadFeedbackPermission();
+
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    const nextUserId = session?.user?.id;
+
+    if (!nextUserId) {
+      setIsAdmin(false);
+      return;
+    }
+
+    loadFeedbackPermission(nextUserId);
+  });
+
+  return () => {
+    subscription.unsubscribe();
+  };
+}, []);
+
+useEffect(() => {
+  if (!isAdmin && page === "feedback") {
+    setPage("listing");
+  }
+}, [isAdmin, page]);
+
+const [form, setForm] = useState({
   const [form, setForm] = useState({
     brand: "",
     item: "",
