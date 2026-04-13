@@ -66,6 +66,21 @@ export async function POST(request) {
       user.user_metadata?.full_name ||
       "";
 
+    const { data: existingProfile, error: existingProfileError } = await supabaseAdmin
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (existingProfileError) {
+      return NextResponse.json(
+        { error: "profile_read_failed" },
+        { status: 500 }
+      );
+    }
+
+    const nextRole = existingProfile?.role || "member";
+
     const { error: profileError } = await supabaseAdmin
       .from("profiles")
       .upsert(
@@ -73,7 +88,7 @@ export async function POST(request) {
           id: user.id,
           email,
           display_name: displayName,
-          role: "member",
+          role: nextRole,
           plan_status: "active",
           updated_at: new Date().toISOString(),
         },
