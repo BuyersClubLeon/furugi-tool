@@ -723,23 +723,30 @@ useEffect(() => {
 }, []);
 
 useEffect(() => {
-  const loadFeedbackPermission = async () => {
-    try {
-      const supabase = createSupabaseBrowser();
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+  const supabase = createSupabaseBrowser();
 
-      if (userError || !user?.id) {
-        setIsAdmin(false);
-        return;
+  const loadFeedbackPermission = async (nextUserId) => {
+    try {
+      let userId = nextUserId;
+
+      if (!userId) {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !user?.id) {
+          setIsAdmin(false);
+          return;
+        }
+
+        userId = user.id;
       }
 
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
-        .eq("id", user.id)
+        .eq("id", userId)
         .maybeSingle();
 
       if (profileError) {
@@ -754,8 +761,24 @@ useEffect(() => {
   };
 
   loadFeedbackPermission();
-}, []);
 
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event, session) => {
+    const nextUserId = session?.user?.id;
+
+    if (!nextUserId) {
+      setIsAdmin(false);
+      return;
+    }
+
+    loadFeedbackPermission(nextUserId);
+  });
+
+  return () => {
+    subscription.unsubscribe();
+  };
+}, []);
 useEffect(() => {
   if (!isAdmin && page === "feedback") {
     setPage("listing");
