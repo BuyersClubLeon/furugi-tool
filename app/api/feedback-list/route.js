@@ -24,19 +24,39 @@ export async function POST(request) {
     }
 
     const {
-      data: { user },
-      error: userError,
-    } = await supabaseAdmin.auth.getUser(accessToken);
+  data: { user },
+  error: userError,
+} = await supabaseAdmin.auth.getUser(accessToken);
 
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: "invalid_user" },
-        { status: 401 }
-      );
-    }
+if (userError || !user) {
+  return NextResponse.json(
+    { error: "invalid_user" },
+    { status: 401 }
+  );
+}
 
-    let feedbackQuery = supabaseAdmin
-      .from("analysis_feedback")
+const { data: profile, error: profileError } = await supabaseAdmin
+  .from("profiles")
+  .select("role")
+  .eq("id", user.id)
+  .maybeSingle();
+
+if (profileError) {
+  return NextResponse.json(
+    { error: "profiles_read_failed" },
+    { status: 500 }
+  );
+}
+
+if (profile?.role !== "admin") {
+  return NextResponse.json(
+    { error: "forbidden" },
+    { status: 403 }
+  );
+}
+
+let feedbackQuery = supabaseAdmin
+  .from("analysis_feedback")
       .select(
         `
           id,
