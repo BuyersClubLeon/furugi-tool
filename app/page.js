@@ -1237,7 +1237,7 @@ ${images.length > 0
           </div>
 
           <nav style={{ flex: 1, paddingTop: 8 }}>
-            {NAV.map((n) => (
+            {visibleNav.map((n) => (
               <div
                 key={n.id}
                 onClick={() => {
