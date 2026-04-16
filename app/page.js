@@ -495,26 +495,66 @@ function ImageUploader({ images, setImages, isMobile }) {
   const inputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
 
-  const processFiles = useCallback((files) => {
-    Array.from(files).forEach((file) => {
-      if (!file.type.startsWith("image/")) return;
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const base64 = e.target.result.split(",")[1];
-        setImages((prev) => [
-          ...prev,
-          {
-            data: base64,
-            type: file.type,
-            name: file.name,
-            preview: e.target.result,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
-  }, [setImages]);
+  const compressImageFile = useCallback((file) => (
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
 
+    reader.onerror = () => reject(new Error("file_read_failed"));
+
+    reader.onload = () => {
+      const img = new Image();
+
+      img.onerror = () => reject(new Error("image_load_failed"));
+
+      img.onload = () => {
+        const maxSide = 1600;
+        const longestSide = Math.max(img.width, img.height);
+        const scale = longestSide > maxSide ? maxSide / longestSide : 1;
+        const width = Math.round(img.width * scale);
+        const height = Math.round(img.height * scale);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas context unavailable"));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+
+        const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        const baseName = file.name.replace(/\.[^.]+$/, "");
+
+        resolve({
+          data: compressedDataUrl.split(",")[1],
+          type: "image/jpeg",
+          name: `${baseName || "image"}.jpg`,
+          preview: compressedDataUrl,
+        });
+      };
+
+      img.src = reader.result;
+    };
+
+    reader.readAsDataURL(file);
+  })
+), []);
+
+const processFiles = useCallback(async (files) => {
+  for (const file of Array.from(files)) {
+    if (!file.type.startsWith("image/")) continue;
+
+    try {
+      const compressed = await compressImageFile(file);
+      setImages((prev) => [...prev, compressed]);
+    } catch (error) {
+      console.error("Failed to compress image:", error);
+    }
+  }
+}, [compressImageFile, setImages]);
   return (
     <div>
       <div
