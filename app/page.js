@@ -495,54 +495,6 @@ function ImageUploader({ images, setImages, isMobile }) {
   const inputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
 
-  const compressImageFile = useCallback((file) => (
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onerror = () => reject(new Error("file_read_failed"));
-
-    reader.onload = () => {
-      const img = new Image();
-
-      img.onerror = () => reject(new Error("image_load_failed"));
-
-      img.onload = () => {
-        const maxSide = 1600;
-        const longestSide = Math.max(img.width, img.height);
-        const scale = longestSide > maxSide ? maxSide / longestSide : 1;
-        const width = Math.round(img.width * scale);
-        const height = Math.round(img.height * scale);
-
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          reject(new Error("Canvas context unavailable"));
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-
-        const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.8);
-        const baseName = file.name.replace(/\.[^.]+$/, "");
-
-        resolve({
-          data: compressedDataUrl.split(",")[1],
-          type: "image/jpeg",
-          name: `${baseName || "image"}.jpg`,
-          preview: compressedDataUrl,
-        });
-      };
-
-      img.src = reader.result;
-    };
-
-    reader.readAsDataURL(file);
-  })
-), []);
-
 const compressImageFile = useCallback((file) => (
   new Promise((resolve, reject) => {
     const reader = new FileReader();
