@@ -1,1 +1,2 @@
-!Array.isArray(body.search_params_json)
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
