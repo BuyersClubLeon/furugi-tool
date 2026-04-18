@@ -17,6 +17,7 @@ export async function POST(request) {
       !Array.isArray(body.search_params_json)
         ? body.search_params_json
         : null;
+    const source = typeof body?.source === "string" ? body.source : "manual";
 
     if (!accessToken || !searchParamsJson) {
       return NextResponse.json(
@@ -41,17 +42,16 @@ export async function POST(request) {
       .from("market_research_runs")
       .insert({
         user_id: user.id,
-        feature_type: "market_research",
-        source_site: "mercari",
         search_params_json: searchParamsJson,
-        summary_json: {},
+        status: "queued",
+        source,
       })
-      .select("id")
+      .select("id, status")
       .single();
 
     if (insertError || !inserted) {
       return NextResponse.json(
-        { error: "market_research_insert_failed" },
+        { error: "market_research_run_insert_failed" },
         { status: 500 }
       );
     }
@@ -59,6 +59,7 @@ export async function POST(request) {
     return NextResponse.json({
       ok: true,
       run_id: inserted.id,
+      status: inserted.status,
     });
   } catch (error) {
     return NextResponse.json(
