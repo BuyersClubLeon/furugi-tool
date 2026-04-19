@@ -22,6 +22,15 @@ function normalizeSearchParams(searchParamsJson) {
   );
 }
 
+function buildPlaceholderTitle(normalizedSearchParams) {
+  const titleParts = [
+    typeof normalizedSearchParams?.brand === "string" ? normalizedSearchParams.brand.trim() : "",
+    typeof normalizedSearchParams?.keyword === "string" ? normalizedSearchParams.keyword.trim() : "",
+  ].filter(Boolean);
+
+  return titleParts.join(" ") || "manual placeholder item";
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -86,21 +95,91 @@ export async function POST(request) {
       currentSummaryJson.normalized_search_params ||
       normalizeSearchParams(runRow.search_params_json);
 
+    const sourceSite = runRow.source_site || "mercari";
+    const observedAt = new Date().toISOString();
+    const placeholderTitle = buildPlaceholderTitle(normalizedSearchParams);
+    const placeholderExternalItemId = `manual-placeholder-${runId}`;
+
+    const { data: marketItemRow, error: marketItemError } = await supabaseAdmin
+      .from("market_items")
+      .upsert(
+        {
+          source_site: sourceSite,
+          external_item_id: placeholderExternalItemId,
+          item_url: "",
+          title: placeholderTitle,
+          brand:
+            typeof normalizedSearchParams.brand === "string"
+              ? normalizedSearchParams.brand.trim()
+              : "",
+          category: "",
+          size_text: "",
+          color_text: "",
+          condition_text: "",
+          price_yen_latest: 0,
+          thumbnail_url: "",
+          seller_name: "",
+          last_seen_at: observedAt,
+          updated_at: observedAt,
+        },
+        {
+          onConflict: "source_site,external_item_id",
+        }
+      )
+      .select("id")
+      .single();
+
+    if (marketItemError || !marketItemRow) {
+      return NextResponse.json(
+        { error: "market_item_upsert_failed" },
+        { status: 500 }
+      );
+    }
+
+    const { error: snapshotError } = await supabaseAdmin
+      .from("market_item_snapshots")
+      .upsert(
+        {
+          run_id: runId,
+          market_item_id: marketItemRow.id,
+          observed_at: observedAt,
+          title: placeholderTitle,
+          price_yen: 0,
+          status_text: "manual_placeholder",
+          is_visible: true,
+          raw_json: {
+            mode: "manual_placeholder",
+            source_site: sourceSite,
+            normalized_search_params: normalizedSearchParams,
+          },
+        },
+        {
+          onConflict: "run_id,market_item_id",
+        }
+      );
+
+    if (snapshotError) {
+      return NextResponse.json(
+        { error: "market_item_snapshot_upsert_failed" },
+        { status: 500 }
+      );
+    }
+
     const nextSummaryJson = {
       ...currentSummaryJson,
       status: "collecting",
       normalized_search_params: normalizedSearchParams,
       research_scope: currentSummaryJson.research_scope || {
-        source_site: runRow.source_site || "mercari",
+        source_site: sourceSite,
         feature_type: runRow.feature_type || "market_research",
       },
       collection_scope: {
-        source_site: runRow.source_site || "mercari",
+        source_site: sourceSite,
         mode: "manual_placeholder",
       },
       collected_counts: {
-        market_items: 0,
-        market_item_snapshots: 0,
+        market_items: 1,
+        market_item_snapshots: 1,
       },
       next_step: "analyze_market_items",
     };
@@ -123,6 +202,10 @@ export async function POST(request) {
       ok: true,
       run_id: runId,
       status: "collecting",
+      collected_counts: {
+        market_items: 1,
+        market_item_snapshots: 1,
+      },
     });
   } catch (error) {
     return NextResponse.json(
