@@ -66,8 +66,52 @@ export async function POST(request) {
         ? runRow.summary_json
         : {};
 
+    const { data: fixedSampleSnapshotRow, error: fixedSampleSnapshotReadError } = await supabaseAdmin
+      .from("market_item_snapshots")
+      .select("price_yen, title, raw_json")
+      .eq("run_id", runId)
+      .eq("status_text", "fixed_sample_single_item")
+      .order("observed_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fixedSampleSnapshotReadError) {
+      return NextResponse.json(
+        { error: "market_item_snapshot_read_failed" },
+        { status: 500 }
+      );
+    }
+
+    const fixedSampleRawJson =
+      fixedSampleSnapshotRow?.raw_json &&
+      typeof fixedSampleSnapshotRow.raw_json === "object" &&
+      !Array.isArray(fixedSampleSnapshotRow.raw_json)
+        ? fixedSampleSnapshotRow.raw_json
+        : {};
+
+    const analysisResultMinimum = fixedSampleSnapshotRow
+      ? {
+          analysis_mode: "fixed_sample_minimum",
+          sample_item_found: true,
+          sample_price_yen: fixedSampleSnapshotRow.price_yen ?? null,
+          sample_title: fixedSampleSnapshotRow.title ?? null,
+          sample_source:
+            typeof fixedSampleRawJson.sample_source === "string"
+              ? fixedSampleRawJson.sample_source
+              : null,
+          sample_mode:
+            typeof fixedSampleRawJson.mode === "string"
+              ? fixedSampleRawJson.mode
+              : null,
+        }
+      : {
+          analysis_mode: "fixed_sample_minimum",
+          sample_item_found: false,
+        };
+
     const nextSummaryJson = {
       ...currentSummaryJson,
+      analysis_result_minimum: analysisResultMinimum,
       status: "analyzing",
       next_step: "generate_market_insights",
     };

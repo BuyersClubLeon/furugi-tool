@@ -66,8 +66,31 @@ export async function POST(request) {
         ? runRow.summary_json
         : {};
 
+    const analysisResultMinimum =
+      currentSummaryJson.analysis_result_minimum &&
+      typeof currentSummaryJson.analysis_result_minimum === "object" &&
+      !Array.isArray(currentSummaryJson.analysis_result_minimum)
+        ? currentSummaryJson.analysis_result_minimum
+        : null;
+
+    const insightResultMinimum =
+      analysisResultMinimum?.sample_item_found === true
+        ? {
+            insight_mode: "fixed_sample_minimum",
+            insight_ready: true,
+            price_yen_reference: analysisResultMinimum.sample_price_yen ?? null,
+            title_reference: analysisResultMinimum.sample_title ?? null,
+            source_reference: analysisResultMinimum.sample_source ?? null,
+            mode_reference: analysisResultMinimum.sample_mode ?? null,
+          }
+        : {
+            insight_mode: "fixed_sample_minimum",
+            insight_ready: false,
+          };
+
     const nextSummaryJson = {
       ...currentSummaryJson,
+      insight_result_minimum: insightResultMinimum,
       status: "generating_market_insights",
       next_step: "complete_market_research",
     };
