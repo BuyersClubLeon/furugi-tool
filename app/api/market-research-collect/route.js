@@ -114,7 +114,7 @@ export async function POST(request) {
               : "",
           category: "",
           size_text: "",
-          color_text: "",
+          color: "",
           condition_text: "",
           price_yen_latest: 0,
           thumbnail_url: "",
