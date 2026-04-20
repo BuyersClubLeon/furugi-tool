@@ -100,7 +100,7 @@ export async function POST(request) {
     const placeholderTitle = buildPlaceholderTitle(normalizedSearchParams);
     const placeholderExternalItemId = `manual-placeholder-${runId}`;
 
-    const { data: marketItemRow, error: marketItemError } = await supabaseAdmin
+    const { error: marketItemUpsertError } = await supabaseAdmin
       .from("market_items")
       .upsert(
         {
@@ -119,19 +119,38 @@ export async function POST(request) {
           price_yen_latest: 0,
           thumbnail_url: "",
           seller_name: "",
+          first_seen_at: observedAt,
           last_seen_at: observedAt,
           updated_at: observedAt,
         },
         {
           onConflict: "source_site,external_item_id",
         }
-      )
-      .select("id")
-      .single();
+      );
 
-    if (marketItemError || !marketItemRow) {
+    if (marketItemUpsertError) {
       return NextResponse.json(
-        { error: "market_item_upsert_failed" },
+        {
+          error: "market_item_upsert_failed",
+          detail: marketItemUpsertError.message || null,
+        },
+        { status: 500 }
+      );
+    }
+
+    const { data: marketItemRow, error: marketItemReadError } = await supabaseAdmin
+      .from("market_items")
+      .select("id")
+      .eq("source_site", sourceSite)
+      .eq("external_item_id", placeholderExternalItemId)
+      .maybeSingle();
+
+    if (marketItemReadError || !marketItemRow) {
+      return NextResponse.json(
+        {
+          error: "market_item_read_failed",
+          detail: marketItemReadError?.message || null,
+        },
         { status: 500 }
       );
     }
@@ -160,7 +179,10 @@ export async function POST(request) {
 
     if (snapshotError) {
       return NextResponse.json(
-        { error: "market_item_snapshot_upsert_failed" },
+        {
+          error: "market_item_snapshot_upsert_failed",
+          detail: snapshotError.message || null,
+        },
         { status: 500 }
       );
     }
