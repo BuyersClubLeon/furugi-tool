@@ -22,13 +22,13 @@ function normalizeSearchParams(searchParamsJson) {
   );
 }
 
-function buildPlaceholderTitle(normalizedSearchParams) {
+function buildFixedSampleTitle(normalizedSearchParams) {
   const titleParts = [
     typeof normalizedSearchParams?.brand === "string" ? normalizedSearchParams.brand.trim() : "",
     typeof normalizedSearchParams?.keyword === "string" ? normalizedSearchParams.keyword.trim() : "",
   ].filter(Boolean);
 
-  return titleParts.join(" ") || "manual placeholder item";
+  return titleParts.join(" ") || "fixed sample collected item";
 }
 
 export async function POST(request) {
@@ -97,17 +97,18 @@ export async function POST(request) {
 
     const sourceSite = runRow.source_site || "mercari";
     const observedAt = new Date().toISOString();
-    const placeholderTitle = buildPlaceholderTitle(normalizedSearchParams);
-    const placeholderExternalItemId = `manual-placeholder-${runId}`;
+    const fixedSampleTitle = buildFixedSampleTitle(normalizedSearchParams);
+    const fixedSampleExternalItemId = `fixed-sample-${runId}`;
+    const fixedSampleItemUrl = "https://jp.mercari.com/item/fixed-sample";
 
     const { error: marketItemUpsertError } = await supabaseAdmin
       .from("market_items")
       .upsert(
         {
           source_site: sourceSite,
-          external_item_id: placeholderExternalItemId,
-          item_url: "",
-          title: placeholderTitle,
+          external_item_id: fixedSampleExternalItemId,
+          item_url: fixedSampleItemUrl,
+          title: fixedSampleTitle,
           brand:
             typeof normalizedSearchParams.brand === "string"
               ? normalizedSearchParams.brand.trim()
@@ -142,7 +143,7 @@ export async function POST(request) {
       .from("market_items")
       .select("id")
       .eq("source_site", sourceSite)
-      .eq("external_item_id", placeholderExternalItemId)
+      .eq("external_item_id", fixedSampleExternalItemId)
       .maybeSingle();
 
     if (marketItemReadError || !marketItemRow) {
@@ -162,13 +163,16 @@ export async function POST(request) {
           run_id: runId,
           market_item_id: marketItemRow.id,
           observed_at: observedAt,
-          title: placeholderTitle,
-          price_yen: 0,
-          status_text: "manual_placeholder",
+          title: fixedSampleTitle,
+          price_yen: 9800,
+          status_text: "fixed_sample_single_item",
           is_visible: true,
           raw_json: {
-            mode: "manual_placeholder",
+            mode: "fixed_sample_single_item",
+            sample_source: "hardcoded_minimum_real_collected_item",
             source_site: sourceSite,
+            external_item_id: fixedSampleExternalItemId,
+            item_url: fixedSampleItemUrl,
             normalized_search_params: normalizedSearchParams,
           },
         },
@@ -197,7 +201,7 @@ export async function POST(request) {
       },
       collection_scope: {
         source_site: sourceSite,
-        mode: "manual_placeholder",
+        mode: "fixed_sample_single_item",
       },
       collected_counts: {
         market_items: 1,
