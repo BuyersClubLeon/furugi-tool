@@ -2875,8 +2875,8 @@ const replyQuestionPreview = getResultPreviewText(
                           <div>{marketResearchSummaryError}</div>
                         ) : (
                           <>
-                            <div>status: {marketResearchSummary.status}</div>
-                            <div>next_step: {marketResearchSummary.nextStep ?? "null"}</div>
+                            <div>処理状態: {marketResearchSummary.status}</div>
+                            <div>次のステップ: {marketResearchSummary.nextStep ?? "null"}</div>
                             <div style={{ marginTop: 6 }}>
                               要約: {marketResearchSummary.summaryText}
                             </div>
