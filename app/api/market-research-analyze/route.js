@@ -116,11 +116,13 @@ export async function POST(request) {
       next_step: "generate_market_insights",
     };
 
-    const { error: updateError } = await supabaseAdmin
-      .from("market_research_runs")
-      .update({ summary_json: nextSummaryJson })
-      .eq("id", runId);
-
+   const { error: updateError } = await supabaseAdmin
+  .from("market_research_runs")
+  .update({
+    summary_json: nextSummaryJson,
+    status: "analyzing",
+  })
+  .eq("id", runId);
     if (updateError) {
       return NextResponse.json(
         { error: "market_research_analyze_update_failed" },
