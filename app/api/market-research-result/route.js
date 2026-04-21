@@ -6,6 +6,14 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+function normalizeSummaryJson(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {};
+  }
+
+  return value;
+}
+
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -19,6 +27,11 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+
+    console.log("[market-research-result] request validated", {
+      hasAccessToken: Boolean(accessToken),
+      runId,
+    });
 
     const {
       data: { user },
@@ -38,9 +51,20 @@ export async function POST(request) {
       .eq("id", runId)
       .maybeSingle();
 
+    console.log("[market-research-result] run lookup result", {
+      hasRunRow: Boolean(runRow),
+      runRowKeys: runRow ? Object.keys(runRow) : [],
+      runError: runError
+        ? { code: runError.code, message: runError.message }
+        : null,
+    });
+
     if (runError) {
       return NextResponse.json(
-        { error: "market_research_run_read_failed" },
+        {
+          error: "market_research_run_read_failed",
+          message: "failed_to_read_market_research_run",
+        },
         { status: 500 }
       );
     }
@@ -59,17 +83,14 @@ export async function POST(request) {
       );
     }
 
-    const summaryJson =
-      runRow.summary_json &&
-      typeof runRow.summary_json === "object" &&
-      !Array.isArray(runRow.summary_json)
-        ? runRow.summary_json
-        : {};
+    const summaryJson = normalizeSummaryJson(runRow.summary_json);
 
     const responseStatus =
-      typeof summaryJson.status === "string" && summaryJson.status.length > 0
+      typeof summaryJson.status === "string" && summaryJson.status.trim().length > 0
         ? summaryJson.status
-        : runRow.status;
+        : typeof runRow.status === "string" && runRow.status.trim().length > 0
+          ? runRow.status
+          : "-";
 
     const nextStep =
       typeof summaryJson.next_step === "string" || summaryJson.next_step === null
@@ -84,8 +105,13 @@ export async function POST(request) {
       summary_json: summaryJson,
     });
   } catch (error) {
+    console.error("[market-research-result] unexpected error", error);
+
     return NextResponse.json(
-      { error: "unexpected_error" },
+      {
+        error: "unexpected_error",
+        message: "unexpected_error_in_market_research_result",
+      },
       { status: 500 }
     );
   }
