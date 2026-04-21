@@ -123,7 +123,10 @@ export async function POST(request) {
     status: "analyzing",
   })
   .eq("id", runId);
-    if (updateError) {
+
+console.log("market_research_analyze updateError:", updateError);
+
+if (updateError) {
       return NextResponse.json(
         { error: "market_research_analyze_update_failed" },
         { status: 500 }
