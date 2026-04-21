@@ -66,6 +66,11 @@ export async function POST(request) {
         ? runRow.summary_json
         : {};
 
+    const responseStatus =
+      typeof summaryJson.status === "string" && summaryJson.status.length > 0
+        ? summaryJson.status
+        : runRow.status;
+
     const nextStep =
       typeof summaryJson.next_step === "string" || summaryJson.next_step === null
         ? summaryJson.next_step
@@ -74,7 +79,7 @@ export async function POST(request) {
     return NextResponse.json({
       ok: true,
       run_id: runRow.id,
-      status: runRow.status,
+      status: responseStatus,
       next_step: nextStep,
       summary_json: summaryJson,
     });
