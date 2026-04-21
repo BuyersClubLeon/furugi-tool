@@ -828,17 +828,30 @@ useEffect(() => {
   }
 }, [isAdmin, page]);
 
+const [marketResearchSummaryLoading, setMarketResearchSummaryLoading] = useState(false);
+
 useEffect(() => {
+  if (page !== "listing") {
+    setMarketResearchSummary(null);
+    setMarketResearchSummaryLoading(false);
+    setMarketResearchSummaryError("");
+    return;
+  }
+
   const fetchMarketResearchResult = async () => {
     const runIdFromUrl = new URLSearchParams(window.location.search).get("run_id");
 
     if (!runIdFromUrl) {
       setMarketResearchSummary(null);
+      setMarketResearchSummaryLoading(false);
       setMarketResearchSummaryError("");
       return;
     }
 
     try {
+      setMarketResearchSummaryLoading(true);
+      setMarketResearchSummaryError("");
+
       const accessToken = await getAccessToken();
 
       if (!accessToken) {
@@ -867,18 +880,31 @@ useEffect(() => {
       }
 
       const summaryJson =
-        data.summary_json &&
+        data?.summary_json &&
         typeof data.summary_json === "object" &&
         !Array.isArray(data.summary_json)
           ? data.summary_json
           : {};
 
-      const summaryText = typeof summaryJson.summary_text === "string" && summaryJson.summary_text.trim().length > 0
-        ? summaryJson.summary_text
-        : "要約なし";
+      const fallbackStatus =
+        typeof data?.status === "string" && data.status.trim().length > 0
+          ? data.status
+          : typeof data?.run?.status === "string" && data.run.status.trim().length > 0
+            ? data.run.status
+            : "-";
+
+      const summaryText =
+        typeof summaryJson.summary === "string" && summaryJson.summary.trim().length > 0
+          ? summaryJson.summary
+          : summaryJson.normalized_search_params
+            ? prettyJson(summaryJson.normalized_search_params)
+            : prettyJson(summaryJson) || "要約なし";
 
       setMarketResearchSummary({
-        status: typeof summaryJson.status === "string" ? summaryJson.status : "-",
+        status:
+          typeof summaryJson.status === "string" && summaryJson.status.trim().length > 0
+            ? summaryJson.status
+            : fallbackStatus,
         nextStep:
           typeof summaryJson.next_step === "string" || summaryJson.next_step === null
             ? summaryJson.next_step
@@ -889,11 +915,13 @@ useEffect(() => {
     } catch (error) {
       setMarketResearchSummary(null);
       setMarketResearchSummaryError("market research の結果取得で通信エラーが発生しました。");
+    } finally {
+      setMarketResearchSummaryLoading(false);
     }
   };
 
   fetchMarketResearchResult();
-}, []);
+}, [page]);
 
 const [form, setForm] = useState({
   brand: "",
