@@ -34,13 +34,13 @@ export async function POST(request) {
 
     const { data: runRow, error: runError } = await supabaseAdmin
       .from("market_research_runs")
-      .select("id, user_id, summary_json")
+      .select("id, user_id, status, summary_json")
       .eq("id", runId)
       .maybeSingle();
 
     if (runError) {
       return NextResponse.json(
-        { error: "market_research_run_read_failed" },
+        { error: "market_research_run_read_failed", details: runError },
         { status: 500 }
       );
     }
@@ -80,7 +80,7 @@ export async function POST(request) {
 
     if (fixedSampleSnapshotReadError) {
       return NextResponse.json(
-        { error: "market_item_snapshot_read_failed" },
+        { error: "market_item_snapshot_read_failed", details: fixedSampleSnapshotReadError },
         { status: 500 }
       );
     }
@@ -119,19 +119,21 @@ export async function POST(request) {
       next_step: "generate_market_insights",
     };
 
-    const { error: updateError } = await supabaseAdmin
+    const { data: updatedRows, error: updateError } = await supabaseAdmin
       .from("market_research_runs")
       .update({
         summary_json: nextSummaryJson,
         status: "analyzing",
       })
-      .eq("id", runId);
-
-    console.log("market_research_analyze updateError:", updateError);
+      .eq("id", runId)
+      .select("id, status, summary_json");
 
     if (updateError) {
       return NextResponse.json(
-        { error: "market_research_analyze_update_failed" },
+        {
+          error: "market_research_analyze_update_failed",
+          details: updateError,
+        },
         { status: 500 }
       );
     }
@@ -139,11 +141,16 @@ export async function POST(request) {
     return NextResponse.json({
       ok: true,
       run_id: runId,
+      before_status: runRow.status ?? null,
+      after_update_rows: updatedRows ?? [],
       status: "analyzing",
     });
   } catch (error) {
     return NextResponse.json(
-      { error: "unexpected_error" },
+      {
+        error: "unexpected_error",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 }
     );
   }
