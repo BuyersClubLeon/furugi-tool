@@ -66,7 +66,10 @@ export async function POST(request) {
         ? runRow.summary_json
         : {};
 
-    const { data: fixedSampleSnapshotRow, error: fixedSampleSnapshotReadError } = await supabaseAdmin
+    const {
+      data: fixedSampleSnapshotRow,
+      error: fixedSampleSnapshotReadError,
+    } = await supabaseAdmin
       .from("market_item_snapshots")
       .select("price_yen, title, raw_json")
       .eq("run_id", runId)
@@ -116,20 +119,17 @@ export async function POST(request) {
       next_step: "generate_market_insights",
     };
 
-const { error: updateError } = await supabaseAdmin
-  .from("market_research_runs")
-  .update({
-    summary_json: nextSummaryJson,
-    status: "analyzing",
-  })
-  .eq("id", runId);
+    const { error: updateError } = await supabaseAdmin
+      .from("market_research_runs")
+      .update({
+        summary_json: nextSummaryJson,
+        status: "analyzing",
+      })
+      .eq("id", runId);
 
-console.log("market_research_analyze updateError:", updateError);
+    console.log("market_research_analyze updateError:", updateError);
 
-if (updateError) {
-console.log("market_research_analyze updateError:", updateError);
-
-if (updateError) {
+    if (updateError) {
       return NextResponse.json(
         { error: "market_research_analyze_update_failed" },
         { status: 500 }
