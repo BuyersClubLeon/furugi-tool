@@ -2863,7 +2863,39 @@ const replyQuestionPreview = getResultPreviewText(
                 )}
               </>
             )}
+{(marketResearchSummary || marketResearchSummaryError) && (
+  <div
+    style={{
+      ...cardStyle,
+      padding: isMobile ? 16 : 24,
+      marginBottom: 20,
+      background: T.surfaceAlt,
+      border: `1px solid ${marketResearchSummaryError ? T.warning : T.border}`,
+    }}
+  >
+    <div style={cardTitleStyle}>
+      <TrendingUp size={15} />
+      market research 最小結果
+    </div>
 
+    {marketResearchSummaryError ? (
+      <div style={{ fontSize: 13, color: T.warning }}>
+        {marketResearchSummaryError}
+      </div>
+    ) : (
+      <div style={{ fontSize: 13, lineHeight: 1.7, color: T.text }}>
+        <div>処理状態: {marketResearchSummary.status}</div>
+        <div>次のステップ: {marketResearchSummary.nextStep ?? "null"}</div>
+        <div style={{ marginTop: 8 }}>
+          要約: {marketResearchSummary.summaryText}
+        </div>
+      </div>
+    )}
+  </div>
+)}
+
+{(loading || result) && (
+  <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
             {(loading || result) && (
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
