@@ -34,7 +34,7 @@ export async function POST(request) {
 
     const { data: runRow, error: runError } = await supabaseAdmin
       .from("market_research_runs")
-      .select("id, user_id, summary_json")
+      .select("id, user_id, status, summary_json")
       .eq("id", runId)
       .maybeSingle();
 
@@ -59,58 +59,24 @@ export async function POST(request) {
       );
     }
 
-    const currentSummaryJson =
+    const summaryJson =
       runRow.summary_json &&
       typeof runRow.summary_json === "object" &&
       !Array.isArray(runRow.summary_json)
         ? runRow.summary_json
         : {};
 
-    const analysisResultMinimum =
-      currentSummaryJson.analysis_result_minimum &&
-      typeof currentSummaryJson.analysis_result_minimum === "object" &&
-      !Array.isArray(currentSummaryJson.analysis_result_minimum)
-        ? currentSummaryJson.analysis_result_minimum
+    const nextStep =
+      typeof summaryJson.next_step === "string" || summaryJson.next_step === null
+        ? summaryJson.next_step
         : null;
-
-    const insightResultMinimum =
-      analysisResultMinimum?.sample_item_found === true
-        ? {
-            insight_mode: "fixed_sample_minimum",
-            insight_ready: true,
-            price_yen_reference: analysisResultMinimum.sample_price_yen ?? null,
-            title_reference: analysisResultMinimum.sample_title ?? null,
-            source_reference: analysisResultMinimum.sample_source ?? null,
-            mode_reference: analysisResultMinimum.sample_mode ?? null,
-          }
-        : {
-            insight_mode: "fixed_sample_minimum",
-            insight_ready: false,
-          };
-
-    const nextSummaryJson = {
-      ...currentSummaryJson,
-      insight_result_minimum: insightResultMinimum,
-      status: "generating_market_insights",
-      next_step: "complete_market_research",
-    };
-
-    const { error: updateError } = await supabaseAdmin
-      .from("market_research_runs")
-      .update({ summary_json: nextSummaryJson })
-      .eq("id", runId);
-
-    if (updateError) {
-      return NextResponse.json(
-        { error: "market_research_generate_insights_update_failed" },
-        { status: 500 }
-      );
-    }
 
     return NextResponse.json({
       ok: true,
-      run_id: runId,
-      status: "generating_market_insights",
+      run_id: runRow.id,
+      status: runRow.status,
+      next_step: nextStep,
+      summary_json: summaryJson,
     });
   } catch (error) {
     return NextResponse.json(
