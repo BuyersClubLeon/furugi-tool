@@ -744,6 +744,8 @@ const [feedbackSearchText, setFeedbackSearchText] = useState("");
 const [feedbackExpandedId, setFeedbackExpandedId] = useState("");
 const [feedbackOutputExpandedId, setFeedbackOutputExpandedId] = useState("");
 const [isAdmin, setIsAdmin] = useState(false);
+const [marketResearchSummary, setMarketResearchSummary] = useState(null);
+const [marketResearchSummaryError, setMarketResearchSummaryError] = useState("");
 
 const visibleNav = isAdmin
   ? NAV
@@ -825,6 +827,73 @@ useEffect(() => {
     setPage("listing");
   }
 }, [isAdmin, page]);
+
+useEffect(() => {
+  const fetchMarketResearchResult = async () => {
+    const runIdFromUrl = new URLSearchParams(window.location.search).get("run_id");
+
+    if (!runIdFromUrl) {
+      setMarketResearchSummary(null);
+      setMarketResearchSummaryError("");
+      return;
+    }
+
+    try {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        setMarketResearchSummary(null);
+        setMarketResearchSummaryError("セッション取得に失敗しました。");
+        return;
+      }
+
+      const response = await fetch("/api/market-research-result", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+          run_id: runIdFromUrl,
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || !data?.ok) {
+        setMarketResearchSummary(null);
+        setMarketResearchSummaryError("market research の結果取得に失敗しました。");
+        return;
+      }
+
+      const summaryJson =
+        data.summary_json &&
+        typeof data.summary_json === "object" &&
+        !Array.isArray(data.summary_json)
+          ? data.summary_json
+          : {};
+
+      const summaryText = typeof summaryJson.summary_text === "string" && summaryJson.summary_text.trim().length > 0
+        ? summaryJson.summary_text
+        : "要約なし";
+
+      setMarketResearchSummary({
+        status: typeof summaryJson.status === "string" ? summaryJson.status : "-",
+        nextStep:
+          typeof summaryJson.next_step === "string" || summaryJson.next_step === null
+            ? summaryJson.next_step
+            : null,
+        summaryText,
+      });
+      setMarketResearchSummaryError("");
+    } catch (error) {
+      setMarketResearchSummary(null);
+      setMarketResearchSummaryError("market research の結果取得で通信エラーが発生しました。");
+    }
+  };
+
+  fetchMarketResearchResult();
+}, []);
 
 const [form, setForm] = useState({
   brand: "",
@@ -2767,6 +2836,38 @@ const replyQuestionPreview = getResultPreviewText(
               </>
             )}
 
+            {(marketResearchSummary || marketResearchSummaryError) && (
+              <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
+                <div style={cardTitleStyle}>
+                  <Sparkles size={15} />
+                  market research 最小結果
+                </div>
+                <div
+                  style={{
+                    background: T.surfaceAlt,
+                    border: `1px solid ${marketResearchSummaryError ? T.warning : T.border}`,
+                    borderRadius: 10,
+                    padding: isMobile ? 12 : 16,
+                    fontSize: 12,
+                    lineHeight: 1.7,
+                    color: marketResearchSummaryError ? T.warning : T.text,
+                  }}
+                >
+                  {marketResearchSummaryError ? (
+                    <div>{marketResearchSummaryError}</div>
+                  ) : (
+                    <>
+                      <div>処理状態: {marketResearchSummary.status}</div>
+                      <div>次のステップ: {marketResearchSummary.nextStep ?? "null"}</div>
+                      <div style={{ marginTop: 6 }}>
+                        要約: {marketResearchSummary.summaryText}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {(loading || result) && (
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -2785,22 +2886,24 @@ const replyQuestionPreview = getResultPreviewText(
                     </div>
                   </div>
                 ) : (
-                  <div
-                    style={{
-                      background: T.surfaceAlt,
-                      border: `1px solid ${hasResultError ? T.danger : T.border}`,
-                      borderRadius: 10,
-                      padding: isMobile ? 14 : 20,
-                      whiteSpace: "pre-wrap",
-                      fontSize: 13,
-                      lineHeight: 1.8,
-                      maxHeight: isMobile ? "none" : 600,
-                      overflowY: "auto",
-                      color: hasResultError ? T.danger : T.text,
-                    }}
-                  >
-                    {result}
-                  </div>
+                  <>
+                    <div
+                      style={{
+                        background: T.surfaceAlt,
+                        border: `1px solid ${hasResultError ? T.danger : T.border}`,
+                        borderRadius: 10,
+                        padding: isMobile ? 14 : 20,
+                        whiteSpace: "pre-wrap",
+                        fontSize: 13,
+                        lineHeight: 1.8,
+                        maxHeight: isMobile ? "none" : 600,
+                        overflowY: "auto",
+                        color: hasResultError ? T.danger : T.text,
+                      }}
+                    >
+                      {result}
+                    </div>
+                  </>
                 )}
 
                 {!!result && !loading && !hasResultError && (
