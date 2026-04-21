@@ -116,7 +116,7 @@ export async function POST(request) {
       next_step: "generate_market_insights",
     };
 
-   const { error: updateError } = await supabaseAdmin
+  const { error: updateError } = await supabaseAdmin
   .from("market_research_runs")
   .update({
     summary_json: nextSummaryJson,
