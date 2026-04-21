@@ -745,8 +745,8 @@ const [feedbackExpandedId, setFeedbackExpandedId] = useState("");
 const [feedbackOutputExpandedId, setFeedbackOutputExpandedId] = useState("");
 const [isAdmin, setIsAdmin] = useState(false);
 const [marketResearchSummary, setMarketResearchSummary] = useState(null);
+const [marketResearchSummaryLoading, setMarketResearchSummaryLoading] = useState(false);
 const [marketResearchSummaryError, setMarketResearchSummaryError] = useState("");
-
 const visibleNav = isAdmin
   ? NAV
   : NAV.filter((item) => item.id !== "feedback");
