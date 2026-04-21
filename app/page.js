@@ -2883,35 +2883,6 @@ const replyQuestionPreview = getResultPreviewText(
                   </div>
                 ) : (
                   <>
-                    {(marketResearchSummary || marketResearchSummaryError) && (
-                      <div
-                        style={{
-                          background: T.surfaceAlt,
-                          border: `1px solid ${marketResearchSummaryError ? T.warning : T.border}`,
-                          borderRadius: 10,
-                          padding: isMobile ? 12 : 16,
-                          marginBottom: 12,
-                          fontSize: 12,
-                          lineHeight: 1.7,
-                          color: marketResearchSummaryError ? T.warning : T.text,
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                          market research 最小結果
-                        </div>
-                        {marketResearchSummaryError ? (
-                          <div>{marketResearchSummaryError}</div>
-                        ) : (
-                          <>
-                            <div>処理状態: {marketResearchSummary.status}</div>
-                            <div>次のステップ: {marketResearchSummary.nextStep ?? "null"}</div>
-                            <div style={{ marginTop: 6 }}>
-                              要約: {marketResearchSummary.summaryText}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
 
                     <div
                       style={{
