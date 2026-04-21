@@ -116,7 +116,7 @@ export async function POST(request) {
       next_step: "generate_market_insights",
     };
 
-  const { error: updateError } = await supabaseAdmin
+const { error: updateError } = await supabaseAdmin
   .from("market_research_runs")
   .update({
     summary_json: nextSummaryJson,
@@ -124,6 +124,9 @@ export async function POST(request) {
   })
   .eq("id", runId);
 
+console.log("market_research_analyze updateError:", updateError);
+
+if (updateError) {
 console.log("market_research_analyze updateError:", updateError);
 
 if (updateError) {
