@@ -1548,7 +1548,7 @@ ${images.length > 0
             {/* DEBUG SUMMARY BLOCK */}
             {page === "listing" && (marketResearchSummary || marketResearchSummaryError) && (
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
-                <div style={{ fontWeight: 700, marginBottom: 8 }}>DEBUG_SUMMARY_VISIBLE</div>
+                
 
                 <div style={cardTitleStyle}>
                   <TrendingUp size={15} />
