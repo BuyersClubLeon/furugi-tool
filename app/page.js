@@ -1545,7 +1545,31 @@ ${images.length > 0
                 )}
               </div>
             )}
+            {/* DEBUG SUMMARY BLOCK */}
+            {page === "listing" && (marketResearchSummary || marketResearchSummaryError) && (
+              <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>DEBUG_SUMMARY_VISIBLE</div>
 
+                <div style={cardTitleStyle}>
+                  <TrendingUp size={15} />
+                  market research 最小結果
+                </div>
+
+                {marketResearchSummaryError ? (
+                  <div style={{ fontSize: 13, color: T.warning }}>
+                    {marketResearchSummaryError}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, lineHeight: 1.7, color: T.text }}>
+                    <div>処理状態: {marketResearchSummary.status}</div>
+                    <div>次のステップ: {marketResearchSummary.nextStep ?? "null"}</div>
+                    <div style={{ marginTop: 8 }}>
+                      要約: {marketResearchSummary.summaryText}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {page === "listing" && (
               <>
                 <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
