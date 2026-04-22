@@ -1545,7 +1545,7 @@ ${images.length > 0
                 )}
               </div>
             )}
-            {/* DEBUG SUMMARY BLOCK */}
+            
             {page === "listing" && (marketResearchSummary || marketResearchSummaryError) && (
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                 
