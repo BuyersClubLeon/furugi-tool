@@ -829,8 +829,6 @@ useEffect(() => {
   }
 }, [isAdmin, page]);
 
-const [marketResearchSummaryLoading, setMarketResearchSummaryLoading] = useState(false);
-
 useEffect(() => {
   if (page !== "listing") {
     setMarketResearchSummary(null);
