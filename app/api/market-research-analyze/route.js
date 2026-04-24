@@ -115,6 +115,13 @@ export async function POST(request) {
     const nextSummaryJson = {
       ...currentSummaryJson,
       analysis_result_minimum: analysisResultMinimum,
+      summary_version: 1,
+      progress: {
+        phase: "analyzing",
+        step_index: 3,
+        step_total: 5,
+      },
+      updated_at: new Date().toISOString(),
       status: "analyzing",
       next_step: "generate_market_insights",
     };

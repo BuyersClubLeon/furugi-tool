@@ -2945,6 +2945,7 @@ const replyQuestionPreview = getResultPreviewText(
                       : `生成結果は表示できていますが、保存準備でエラーが出ています: ${requestSaveError || "unknown_error"}`}
                   </div>
                 )}
+                {!!result && !loading && !hasResultError && (
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                 <div style={cardTitleStyle}>
                   <MessageCircle size={15} /> この結果のフィードバック
@@ -3096,6 +3097,8 @@ const replyQuestionPreview = getResultPreviewText(
                     {feedbackMessage}
                   </div>
                 )}
+              </div>
+            )}
               </div>
             )}
 

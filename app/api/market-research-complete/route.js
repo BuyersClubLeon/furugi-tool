@@ -55,6 +55,13 @@ export async function POST(request) {
 
     const nextSummaryJson = {
       ...currentSummaryJson,
+      summary_version: 1,
+      progress: {
+        phase: "completed_market_research",
+        step_index: 5,
+        step_total: 5,
+      },
+      updated_at: new Date().toISOString(),
       status: "completed_market_research",
       next_step: null,
     };
