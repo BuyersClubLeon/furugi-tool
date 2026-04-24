@@ -3096,8 +3096,6 @@ const replyQuestionPreview = getResultPreviewText(
                     {feedbackMessage}
                   </div>
                 )}
-              </div>
-            )}
 
           </div>
         </div>
