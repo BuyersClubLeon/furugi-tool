@@ -2887,7 +2887,7 @@ const replyQuestionPreview = getResultPreviewText(
               </>
             )}
 
-           (loading || result || marketResearchSummary || marketResearchSummaryError)
+            {(loading || result || marketResearchSummary || marketResearchSummaryError) && (
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                   <div style={cardTitleStyle}>
