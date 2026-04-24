@@ -2947,160 +2947,94 @@ const replyQuestionPreview = getResultPreviewText(
                 )}
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                 <div style={cardTitleStyle}>
-                  <MessageCircle size={15} /> この結果のフィードバック
-                </div>
+                {!!result && !loading && !hasResultError && (
+                  <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
+                    <div style={cardTitleStyle}>
+                      <MessageCircle size={15} /> この結果のフィードバック
+                    </div>
 
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: T.textDim,
-                    marginBottom: 14,
-                    padding: "10px 12px",
-                    background: T.surfaceAlt,
-                    border: `1px solid ${T.border}`,
-                    borderRadius: 8,
-                    lineHeight: 1.7,
-                  }}
-                >
-                  今回の {generatedNav?.label || nav?.label} の結果について、合っていたか確認できます。<br />
-                  送信すると保存APIに送られます。
-                </div>
+                    <div style={{ marginBottom: 12, fontSize: 12, color: T.textDim }}>
+                      生成結果が良かったか、修正したい点があれば記録できます。
+                    </div>
 
-                <FieldGroup label="全体の評価">
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {[
-                      { value: "good", label: "良かった" },
-                      { value: "close", label: "惜しい" },
-                      { value: "bad", label: "修正が必要" },
-                    ].map((item) => (
+                    <FieldGroup label="評価">
+                      <select
+                        style={inputStyle}
+                        value={feedback.rating}
+                        onChange={(e) => uf("rating", e.target.value)}
+                      >
+                        <option value="">選択してください</option>
+                        <option value="good">良かった</option>
+                        <option value="close">惜しい</option>
+                        <option value="bad">修正が必要</option>
+                      </select>
+                    </FieldGroup>
+
+                    <FieldGroup label="修正したい点">
+                      <select
+                        style={inputStyle}
+                        value={feedback.issueType}
+                        onChange={(e) => uf("issueType", e.target.value)}
+                      >
+                        {FEEDBACK_ISSUES.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </FieldGroup>
+
+                    <FieldGroup label="自由コメント">
+                      <textarea
+                        style={{ ...textareaStyle, minHeight: 120 }}
+                        placeholder="例：ブランドは合っているけど、アイテム名と状態説明を直したいです。"
+                        value={feedback.comment}
+                        onChange={(e) => uf("comment", e.target.value)}
+                      />
+                    </FieldGroup>
+
+                    <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12 }}>
                       <button
-                        key={item.value}
-                        onClick={() => uf("rating", item.value)}
+                        style={{ ...btnStyle("primary"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
+                        onClick={submitFeedback}
+                        disabled={feedbackLoading}
+                      >
+                        {feedbackLoading ? (
+                          <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+                        ) : (
+                          <Send size={15} />
+                        )}
+                        {feedbackLoading ? "送信中..." : "フィードバックを送信"}
+                      </button>
+
+                      <button
+                        style={{ ...btnStyle("ghost"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
+                        onClick={resetFeedback}
+                      >
+                        <RotateCcw size={14} /> フォームをクリア
+                      </button>
+                    </div>
+
+                    {!!feedbackMessage && (
+                      <div
                         style={{
-                          padding: "10px 14px",
+                          marginTop: 14,
+                          padding: "12px 14px",
                           borderRadius: 8,
-                          border: `1px solid ${feedback.rating === item.value ? T.accent : T.border}`,
-                          background: feedback.rating === item.value ? `${T.accent}20` : "transparent",
-                          color: feedback.rating === item.value ? T.accent : T.textMuted,
+                          background: feedbackMessageType === "success" ? `${T.success}14` : `${T.danger}14`,
+                          border: `1px solid ${feedbackMessageType === "success" ? T.success : T.danger}40`,
+                          color: feedbackMessageType === "success" ? T.success : T.danger,
                           fontSize: 13,
-                          cursor: "pointer",
+                          lineHeight: 1.7,
                         }}
                       >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </FieldGroup>
-
-                <FieldGroup label="どこを直したいですか？">
-                  <select
-                    style={{ ...inputStyle, cursor: "pointer" }}
-                    value={feedback.issueType}
-                    onChange={(e) => uf("issueType", e.target.value)}
-                  >
-                    {FEEDBACK_ISSUES.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </FieldGroup>
-
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
-                  <FieldGroup label="正しいブランド名（必要なら）">
-                    <input
-                      style={inputStyle}
-                      placeholder="例: Timberland"
-                      value={feedback.correctedBrand}
-                      onChange={(e) => uf("correctedBrand", e.target.value)}
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup label="正しいカテゴリ（必要なら）">
-                    <input
-                      style={inputStyle}
-                      placeholder="例: レザージャケット"
-                      value={feedback.correctedCategory}
-                      onChange={(e) => uf("correctedCategory", e.target.value)}
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup label="正しい年代（必要なら）">
-                    <input
-                      style={inputStyle}
-                      placeholder="例: 90s"
-                      value={feedback.correctedEra}
-                      onChange={(e) => uf("correctedEra", e.target.value)}
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup label="正しい状態（必要なら）">
-                    <input
-                      style={inputStyle}
-                      placeholder="例: B"
-                      value={feedback.correctedCondition}
-                      onChange={(e) => uf("correctedCondition", e.target.value)}
-                    />
-                  </FieldGroup>
-                </div>
-
-                <FieldGroup label="自由コメント">
-                  <textarea
-                    style={{ ...textareaStyle, minHeight: 120 }}
-                    placeholder="例: ブランドは合っているけど、アイテム名と状態説明を直したいです。"
-                    value={feedback.comment}
-                    onChange={(e) => uf("comment", e.target.value)}
-                  />
-                </FieldGroup>
-
-                <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12 }}>
-                  <button
-                    style={{ ...btnStyle("primary"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
-                    onClick={submitFeedback}
-                    disabled={
-                      feedbackLoading ||
-                      (!feedback.rating &&
-                        !feedback.issueType &&
-                        !feedback.comment &&
-                        !feedback.correctedBrand &&
-                        !feedback.correctedCategory &&
-                        !feedback.correctedEra &&
-                        !feedback.correctedCondition)
-                    }
-                  >
-                    {feedbackLoading
-                      ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
-                      : <Send size={15} />}
-                    {feedbackLoading ? "送信中..." : "フィードバックを送信"}
-                  </button>
-
-                  <button
-                    style={{ ...btnStyle("ghost"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
-                    onClick={resetFeedback}
-                  >
-                    <RotateCcw size={14} /> フォームをクリア
-                  </button>
-                </div>
-
-                {!!feedbackMessage && (
-                  <div
-                    style={{
-                      marginTop: 14,
-                      padding: "12px 14px",
-                      borderRadius: 8,
-                      background: feedbackMessageType === "success" ? `${T.success}14` : `${T.danger}14`,
-                      border: `1px solid ${feedbackMessageType === "success" ? T.success : T.danger}40`,
-                      color: feedbackMessageType === "success" ? T.success : T.danger,
-                      fontSize: 13,
-                      lineHeight: 1.7,
-                    }}
-                  >
-                    {feedbackMessage}
+                        {feedbackMessage}
+                      </div>
+                    )}
                   </div>
                 )}
-            </div>
-          )}
 
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
+                <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
 }
