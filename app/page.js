@@ -745,6 +745,7 @@ const [feedbackExpandedId, setFeedbackExpandedId] = useState("");
 const [feedbackOutputExpandedId, setFeedbackOutputExpandedId] = useState("");
 const [isAdmin, setIsAdmin] = useState(false);
 const [marketResearchSummary, setMarketResearchSummary] = useState(null);
+const [marketResearchSummaryLoading, setMarketResearchSummaryLoading] = useState(false);
 const [marketResearchSummaryError, setMarketResearchSummaryError] = useState("");
 
 const visibleNav = isAdmin
@@ -829,16 +830,27 @@ useEffect(() => {
 }, [isAdmin, page]);
 
 useEffect(() => {
+  if (page !== "listing") {
+    setMarketResearchSummary(null);
+    setMarketResearchSummaryLoading(false);
+    setMarketResearchSummaryError("");
+    return;
+  }
+
   const fetchMarketResearchResult = async () => {
     const runIdFromUrl = new URLSearchParams(window.location.search).get("run_id");
 
     if (!runIdFromUrl) {
       setMarketResearchSummary(null);
+      setMarketResearchSummaryLoading(false);
       setMarketResearchSummaryError("");
       return;
     }
 
     try {
+      setMarketResearchSummaryLoading(true);
+      setMarketResearchSummaryError("");
+
       const accessToken = await getAccessToken();
 
       if (!accessToken) {
@@ -867,18 +879,31 @@ useEffect(() => {
       }
 
       const summaryJson =
-        data.summary_json &&
+        data?.summary_json &&
         typeof data.summary_json === "object" &&
         !Array.isArray(data.summary_json)
           ? data.summary_json
           : {};
 
-      const summaryText = typeof summaryJson.summary_text === "string" && summaryJson.summary_text.trim().length > 0
-        ? summaryJson.summary_text
-        : "要約なし";
+      const fallbackStatus =
+        typeof data?.status === "string" && data.status.trim().length > 0
+          ? data.status
+          : typeof data?.run?.status === "string" && data.run.status.trim().length > 0
+            ? data.run.status
+            : "-";
+
+      const summaryText =
+        typeof summaryJson.summary === "string" && summaryJson.summary.trim().length > 0
+          ? summaryJson.summary
+          : summaryJson.normalized_search_params
+            ? prettyJson(summaryJson.normalized_search_params)
+            : prettyJson(summaryJson) || "要約なし";
 
       setMarketResearchSummary({
-        status: typeof summaryJson.status === "string" ? summaryJson.status : "-",
+        status:
+          typeof summaryJson.status === "string" && summaryJson.status.trim().length > 0
+            ? summaryJson.status
+            : fallbackStatus,
         nextStep:
           typeof summaryJson.next_step === "string" || summaryJson.next_step === null
             ? summaryJson.next_step
@@ -889,11 +914,13 @@ useEffect(() => {
     } catch (error) {
       setMarketResearchSummary(null);
       setMarketResearchSummaryError("market research の結果取得で通信エラーが発生しました。");
+    } finally {
+      setMarketResearchSummaryLoading(false);
     }
   };
 
   fetchMarketResearchResult();
-}, []);
+}, [page]);
 
 const [form, setForm] = useState({
   brand: "",
@@ -1518,7 +1545,31 @@ ${images.length > 0
                 )}
               </div>
             )}
+            
+            {page === "listing" && (marketResearchSummary || marketResearchSummaryError) && (
+              <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
+                
 
+                <div style={cardTitleStyle}>
+                  <TrendingUp size={15} />
+                  market research 最小結果
+                </div>
+
+                {marketResearchSummaryError ? (
+                  <div style={{ fontSize: 13, color: T.warning }}>
+                    {marketResearchSummaryError}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 13, lineHeight: 1.7, color: T.text }}>
+                    <div>処理状態: {marketResearchSummary.status}</div>
+                    <div>次のステップ: {marketResearchSummary.nextStep ?? "null"}</div>
+                    <div style={{ marginTop: 8 }}>
+                      要約: {marketResearchSummary.summaryText}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             {page === "listing" && (
               <>
                 <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
@@ -2836,7 +2887,7 @@ const replyQuestionPreview = getResultPreviewText(
               </>
             )}
 
-            {(loading || result) && (
+            {(loading || result || marketResearchSummary || marketResearchSummaryError) && (
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                   <div style={cardTitleStyle}>
@@ -2854,54 +2905,22 @@ const replyQuestionPreview = getResultPreviewText(
                     </div>
                   </div>
                 ) : (
-                  <>
-                    {(marketResearchSummary || marketResearchSummaryError) && (
-                      <div
-                        style={{
-                          background: T.surfaceAlt,
-                          border: `1px solid ${marketResearchSummaryError ? T.warning : T.border}`,
-                          borderRadius: 10,
-                          padding: isMobile ? 12 : 16,
-                          marginBottom: 12,
-                          fontSize: 12,
-                          lineHeight: 1.7,
-                          color: marketResearchSummaryError ? T.warning : T.text,
-                        }}
-                      >
-                        <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                          market research 最小結果
-                        </div>
-                        {marketResearchSummaryError ? (
-                          <div>{marketResearchSummaryError}</div>
-                        ) : (
-                          <>
-                            <div>処理状態: {marketResearchSummary.status}</div>
-                            <div>次のステップ: {marketResearchSummary.nextStep ?? "null"}</div>
-                            <div style={{ marginTop: 6 }}>
-                              要約: {marketResearchSummary.summaryText}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    <div
-                      style={{
-                        background: T.surfaceAlt,
-                        border: `1px solid ${hasResultError ? T.danger : T.border}`,
-                        borderRadius: 10,
-                        padding: isMobile ? 14 : 20,
-                        whiteSpace: "pre-wrap",
-                        fontSize: 13,
-                        lineHeight: 1.8,
-                        maxHeight: isMobile ? "none" : 600,
-                        overflowY: "auto",
-                        color: hasResultError ? T.danger : T.text,
-                      }}
-                    >
-                      {result}
-                    </div>
-                  </>
+                  <div
+                    style={{
+                      background: T.surfaceAlt,
+                      border: `1px solid ${hasResultError ? T.danger : T.border}`,
+                      borderRadius: 10,
+                      padding: isMobile ? 14 : 20,
+                      whiteSpace: "pre-wrap",
+                      fontSize: 13,
+                      lineHeight: 1.8,
+                      maxHeight: isMobile ? "none" : 600,
+                      overflowY: "auto",
+                      color: hasResultError ? T.danger : T.text,
+                    }}
+                  >
+                    {result}
+                  </div>
                 )}
 
                 {!!result && !loading && !hasResultError && (
@@ -2922,169 +2941,100 @@ const replyQuestionPreview = getResultPreviewText(
                       : `生成結果は表示できていますが、保存準備でエラーが出ています: ${requestSaveError || "unknown_error"}`}
                   </div>
                 )}
-              </div>
-            )}
 
-            {!!result && !loading && !hasResultError && (
-              <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
-                <div style={cardTitleStyle}>
-                  <MessageCircle size={15} /> この結果のフィードバック
-                </div>
+                {!!result && !loading && !hasResultError && (
+                  <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
+                    <div style={cardTitleStyle}>
+                      <MessageCircle size={15} /> この結果のフィードバック
+                    </div>
 
-                <div
-                  style={{
-                    fontSize: 12,
-                    color: T.textDim,
-                    marginBottom: 14,
-                    padding: "10px 12px",
-                    background: T.surfaceAlt,
-                    border: `1px solid ${T.border}`,
-                    borderRadius: 8,
-                    lineHeight: 1.7,
-                  }}
-                >
-                  今回の {generatedNav?.label || nav?.label} の結果について、合っていたか確認できます。<br />
-                  送信すると保存APIに送られます。
-                </div>
+                    <div style={{ marginBottom: 12, fontSize: 12, color: T.textDim }}>
+                      生成結果が良かったか、修正したい点があれば記録できます。
+                    </div>
 
-                <FieldGroup label="全体の評価">
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {[
-                      { value: "good", label: "良かった" },
-                      { value: "close", label: "惜しい" },
-                      { value: "bad", label: "修正が必要" },
-                    ].map((item) => (
+                    <FieldGroup label="評価">
+                      <select
+                        style={inputStyle}
+                        value={feedback.rating}
+                        onChange={(e) => uf("rating", e.target.value)}
+                      >
+                        <option value="">選択してください</option>
+                        <option value="good">良かった</option>
+                        <option value="close">惜しい</option>
+                        <option value="bad">修正が必要</option>
+                      </select>
+                    </FieldGroup>
+
+                    <FieldGroup label="修正したい点">
+                      <select
+                        style={inputStyle}
+                        value={feedback.issueType}
+                        onChange={(e) => uf("issueType", e.target.value)}
+                      >
+                        {FEEDBACK_ISSUES.map((item) => (
+                          <option key={item.value} value={item.value}>
+                            {item.label}
+                          </option>
+                        ))}
+                      </select>
+                    </FieldGroup>
+
+                    <FieldGroup label="自由コメント">
+                      <textarea
+                        style={{ ...textareaStyle, minHeight: 120 }}
+                        placeholder="例：ブランドは合っているけど、アイテム名と状態説明を直したいです。"
+                        value={feedback.comment}
+                        onChange={(e) => uf("comment", e.target.value)}
+                      />
+                    </FieldGroup>
+
+                    <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12 }}>
                       <button
-                        key={item.value}
-                        onClick={() => uf("rating", item.value)}
+                        style={{ ...btnStyle("primary"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
+                        onClick={submitFeedback}
+                        disabled={feedbackLoading}
+                      >
+                        {feedbackLoading ? (
+                          <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+                        ) : (
+                          <Send size={15} />
+                        )}
+                        {feedbackLoading ? "送信中..." : "フィードバックを送信"}
+                      </button>
+
+                      <button
+                        style={{ ...btnStyle("ghost"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
+                        onClick={resetFeedback}
+                      >
+                        <RotateCcw size={14} /> フォームをクリア
+                      </button>
+                    </div>
+
+                    {!!feedbackMessage && (
+                      <div
                         style={{
-                          padding: "10px 14px",
+                          marginTop: 14,
+                          padding: "12px 14px",
                           borderRadius: 8,
-                          border: `1px solid ${feedback.rating === item.value ? T.accent : T.border}`,
-                          background: feedback.rating === item.value ? `${T.accent}20` : "transparent",
-                          color: feedback.rating === item.value ? T.accent : T.textMuted,
+                          background: feedbackMessageType === "success" ? `${T.success}14` : `${T.danger}14`,
+                          border: `1px solid ${feedbackMessageType === "success" ? T.success : T.danger}40`,
+                          color: feedbackMessageType === "success" ? T.success : T.danger,
                           fontSize: 13,
-                          cursor: "pointer",
+                          lineHeight: 1.7,
                         }}
                       >
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                </FieldGroup>
-
-                <FieldGroup label="どこを直したいですか？">
-                  <select
-                    style={{ ...inputStyle, cursor: "pointer" }}
-                    value={feedback.issueType}
-                    onChange={(e) => uf("issueType", e.target.value)}
-                  >
-                    {FEEDBACK_ISSUES.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </FieldGroup>
-
-                <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
-                  <FieldGroup label="正しいブランド名（必要なら）">
-                    <input
-                      style={inputStyle}
-                      placeholder="例: Timberland"
-                      value={feedback.correctedBrand}
-                      onChange={(e) => uf("correctedBrand", e.target.value)}
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup label="正しいカテゴリ（必要なら）">
-                    <input
-                      style={inputStyle}
-                      placeholder="例: レザージャケット"
-                      value={feedback.correctedCategory}
-                      onChange={(e) => uf("correctedCategory", e.target.value)}
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup label="正しい年代（必要なら）">
-                    <input
-                      style={inputStyle}
-                      placeholder="例: 90s"
-                      value={feedback.correctedEra}
-                      onChange={(e) => uf("correctedEra", e.target.value)}
-                    />
-                  </FieldGroup>
-
-                  <FieldGroup label="正しい状態（必要なら）">
-                    <input
-                      style={inputStyle}
-                      placeholder="例: B"
-                      value={feedback.correctedCondition}
-                      onChange={(e) => uf("correctedCondition", e.target.value)}
-                    />
-                  </FieldGroup>
-                </div>
-
-                <FieldGroup label="自由コメント">
-                  <textarea
-                    style={{ ...textareaStyle, minHeight: 120 }}
-                    placeholder="例: ブランドは合っているけど、アイテム名と状態説明を直したいです。"
-                    value={feedback.comment}
-                    onChange={(e) => uf("comment", e.target.value)}
-                  />
-                </FieldGroup>
-
-                <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12 }}>
-                  <button
-                    style={{ ...btnStyle("primary"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
-                    onClick={submitFeedback}
-                    disabled={
-                      feedbackLoading ||
-                      (!feedback.rating &&
-                        !feedback.issueType &&
-                        !feedback.comment &&
-                        !feedback.correctedBrand &&
-                        !feedback.correctedCategory &&
-                        !feedback.correctedEra &&
-                        !feedback.correctedCondition)
-                    }
-                  >
-                    {feedbackLoading
-                      ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
-                      : <Send size={15} />}
-                    {feedbackLoading ? "送信中..." : "フィードバックを送信"}
-                  </button>
-
-                  <button
-                    style={{ ...btnStyle("ghost"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
-                    onClick={resetFeedback}
-                  >
-                    <RotateCcw size={14} /> フォームをクリア
-                  </button>
-                </div>
-
-                {!!feedbackMessage && (
-                  <div
-                    style={{
-                      marginTop: 14,
-                      padding: "12px 14px",
-                      borderRadius: 8,
-                      background: feedbackMessageType === "success" ? `${T.success}14` : `${T.danger}14`,
-                      border: `1px solid ${feedbackMessageType === "success" ? T.success : T.danger}40`,
-                      color: feedbackMessageType === "success" ? T.success : T.danger,
-                      fontSize: 13,
-                      lineHeight: 1.7,
-                    }}
-                  >
-                    {feedbackMessage}
+                        {feedbackMessage}
+                      </div>
+                    )}
                   </div>
                 )}
+
+                <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
               </div>
             )}
-
           </div>
-        </div>
+          </div>
+          </div>
       </div>
-
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-    </div>
-  );
+    );
 }
