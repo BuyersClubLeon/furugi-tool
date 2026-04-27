@@ -1,4 +1,4 @@
-"us client";
+"use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { createSupabaseBrowser } from "../lib/supabase";
