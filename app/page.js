@@ -902,15 +902,21 @@ useEffect(() => {
             ? prettyJson(summaryJson.normalized_search_params)
             : prettyJson(summaryJson) || "要約なし";
       const progress =
-        summaryJson.progress &&
-        typeof summaryJson.progress === "object" &&
-        !Array.isArray(summaryJson.progress)
-          ? summaryJson.progress
-          : null;
-      const updatedAt =
-        typeof summaryJson.updated_at === "string" && summaryJson.updated_at.trim().length > 0
-          ? summaryJson.updated_at
-          : "-";
+  summaryJson.progress &&
+  typeof summaryJson.progress === "object" &&
+  !Array.isArray(summaryJson.progress)
+    ? summaryJson.progress
+    : null;
+const highlights =
+  summaryJson.highlights &&
+  typeof summaryJson.highlights === "object" &&
+  !Array.isArray(summaryJson.highlights)
+    ? summaryJson.highlights
+    : null;
+const updatedAt =
+  typeof summaryJson.updated_at === "string" && summaryJson.updated_at.trim().length > 0
+    ? summaryJson.updated_at
+    : "-";
 
       setMarketResearchSummary({
         status:
