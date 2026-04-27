@@ -931,12 +931,31 @@ const updatedAt =
           typeof progress?.step_index === "number" ? progress.step_index : "-",
         progressStepTotal:
           typeof progress?.step_total === "number" ? progress.step_total : "-",
-        progressPhase:
-          typeof progress?.phase === "string" && progress.phase.trim().length > 0
-            ? progress.phase
-            : "-",
-        updatedAt,
-        summaryText,
+progressPhase:
+  typeof progress?.phase === "string" && progress.phase.trim().length > 0
+    ? progress.phase
+    : "-",
+sampleTitle:
+  typeof highlights?.sample_title === "string" && highlights.sample_title.trim().length > 0
+    ? highlights.sample_title
+    : "-",
+samplePriceYen:
+  typeof highlights?.sample_price_yen === "number" ||
+  typeof highlights?.sample_price_yen === "string"
+    ? highlights.sample_price_yen
+    : "-",
+insightReady:
+  typeof highlights?.insight_ready === "boolean"
+    ? highlights.insight_ready
+      ? "true"
+      : "false"
+    : "-",
+collectionMode:
+  typeof highlights?.collection_mode === "string" && highlights.collection_mode.trim().length > 0
+    ? highlights.collection_mode
+    : "-",
+updatedAt,
+summaryText,
       });
       setMarketResearchSummaryError("");
     } catch (error) {
