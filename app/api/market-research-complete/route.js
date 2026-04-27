@@ -52,9 +52,41 @@ export async function POST(request) {
       !Array.isArray(runRow.summary_json)
         ? runRow.summary_json
         : {};
+    const analysisResultMinimum =
+      currentSummaryJson.analysis_result_minimum &&
+      typeof currentSummaryJson.analysis_result_minimum === "object" &&
+      !Array.isArray(currentSummaryJson.analysis_result_minimum)
+        ? currentSummaryJson.analysis_result_minimum
+        : null;
+    const insightResultMinimum =
+      currentSummaryJson.insight_result_minimum &&
+      typeof currentSummaryJson.insight_result_minimum === "object" &&
+      !Array.isArray(currentSummaryJson.insight_result_minimum)
+        ? currentSummaryJson.insight_result_minimum
+        : null;
 
     const nextSummaryJson = {
       ...currentSummaryJson,
+      highlights: {
+        sample_title:
+          typeof analysisResultMinimum?.sample_title === "string"
+            ? analysisResultMinimum.sample_title
+            : null,
+        sample_price_yen:
+          typeof analysisResultMinimum?.sample_price_yen === "number"
+            ? analysisResultMinimum.sample_price_yen
+            : null,
+        insight_ready:
+          typeof insightResultMinimum?.insight_ready === "boolean"
+            ? insightResultMinimum.insight_ready
+            : null,
+        collection_mode:
+          typeof insightResultMinimum?.mode_reference === "string"
+            ? insightResultMinimum.mode_reference
+            : typeof analysisResultMinimum?.sample_mode === "string"
+              ? analysisResultMinimum.sample_mode
+              : null,
+      },
       status: "completed_market_research",
       next_step: null,
     };
