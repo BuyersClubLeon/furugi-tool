@@ -901,6 +901,16 @@ useEffect(() => {
           : summaryJson.normalized_search_params
             ? prettyJson(summaryJson.normalized_search_params)
             : prettyJson(summaryJson) || "要約なし";
+      const progress =
+        summaryJson.progress &&
+        typeof summaryJson.progress === "object" &&
+        !Array.isArray(summaryJson.progress)
+          ? summaryJson.progress
+          : null;
+      const updatedAt =
+        typeof summaryJson.updated_at === "string" && summaryJson.updated_at.trim().length > 0
+          ? summaryJson.updated_at
+          : "-";
 
       setMarketResearchSummary({
         status:
@@ -911,6 +921,15 @@ useEffect(() => {
           typeof summaryJson.next_step === "string" || summaryJson.next_step === null
             ? summaryJson.next_step
             : null,
+        progressStepIndex:
+          typeof progress?.step_index === "number" ? progress.step_index : "-",
+        progressStepTotal:
+          typeof progress?.step_total === "number" ? progress.step_total : "-",
+        progressPhase:
+          typeof progress?.phase === "string" && progress.phase.trim().length > 0
+            ? progress.phase
+            : "-",
+        updatedAt,
         summaryText,
       });
       setMarketResearchSummaryError("");
@@ -1570,6 +1589,11 @@ ${images.length > 0
                   <div style={{ fontSize: 13, lineHeight: 1.7, color: T.text }}>
                     <div>処理状態: {marketResearchSummary.status}</div>
                     <div>次のステップ: {marketResearchSummary.nextStep ?? "null"}</div>
+                    <div>
+                      進捗: {marketResearchSummary.progressStepIndex} / {marketResearchSummary.progressStepTotal}
+                    </div>
+                    <div>フェーズ: {marketResearchSummary.progressPhase}</div>
+                    <div>最終更新: {marketResearchSummary.updatedAt}</div>
                     <div style={{ marginTop: 8 }}>
                       要約: {marketResearchSummary.summaryText}
                     </div>
