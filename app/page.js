@@ -747,6 +747,7 @@ const [isAdmin, setIsAdmin] = useState(false);
 const [marketResearchSummary, setMarketResearchSummary] = useState(null);
 const [marketResearchSummaryLoading, setMarketResearchSummaryLoading] = useState(false);
 const [marketResearchSummaryError, setMarketResearchSummaryError] = useState("");
+const [marketResearchRunId, setMarketResearchRunId] = useState("");
 
 const visibleNav = isAdmin
   ? NAV
@@ -831,6 +832,7 @@ useEffect(() => {
 
 useEffect(() => {
   if (page !== "listing") {
+    setMarketResearchRunId("");
     setMarketResearchSummary(null);
     setMarketResearchSummaryLoading(false);
     setMarketResearchSummaryError("");
@@ -839,6 +841,7 @@ useEffect(() => {
 
   const fetchMarketResearchResult = async () => {
     const runIdFromUrl = new URLSearchParams(window.location.search).get("run_id");
+    setMarketResearchRunId(runIdFromUrl || "");
 
     if (!runIdFromUrl) {
       setMarketResearchSummary(null);
@@ -1546,7 +1549,7 @@ ${images.length > 0
               </div>
             )}
             
-            {page === "listing" && (marketResearchSummary || marketResearchSummaryError) && (
+            {page === "listing" && (marketResearchRunId || marketResearchSummaryLoading || marketResearchSummary || marketResearchSummaryError) && (
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                 
 
@@ -1555,7 +1558,11 @@ ${images.length > 0
                   market research 最小結果
                 </div>
 
-                {marketResearchSummaryError ? (
+                {marketResearchSummaryLoading ? (
+                  <div style={{ fontSize: 13, color: T.textMuted }}>
+                    読み込み中
+                  </div>
+                ) : marketResearchSummaryError ? (
                   <div style={{ fontSize: 13, color: T.warning }}>
                     {marketResearchSummaryError}
                   </div>
@@ -2905,26 +2912,22 @@ const replyQuestionPreview = getResultPreviewText(
                     </div>
                   </div>
                 ) : (
-                  <>
-                
-
-                    <div
-                      style={{
-                        background: T.surfaceAlt,
-                        border: `1px solid ${hasResultError ? T.danger : T.border}`,
-                        borderRadius: 10,
-                        padding: isMobile ? 14 : 20,
-                        whiteSpace: "pre-wrap",
-                        fontSize: 13,
-                        lineHeight: 1.8,
-                        maxHeight: isMobile ? "none" : 600,
-                        overflowY: "auto",
-                        color: hasResultError ? T.danger : T.text,
-                      }}
-                    >
-                      {result}
-                    </div>
-                  </>
+                  <div
+                    style={{
+                      background: T.surfaceAlt,
+                      border: `1px solid ${hasResultError ? T.danger : T.border}`,
+                      borderRadius: 10,
+                      padding: isMobile ? 14 : 20,
+                      whiteSpace: "pre-wrap",
+                      fontSize: 13,
+                      lineHeight: 1.8,
+                      maxHeight: isMobile ? "none" : 600,
+                      overflowY: "auto",
+                      color: hasResultError ? T.danger : T.text,
+                    }}
+                  >
+                    {result}
+                  </div>
                 )}
 
                 {!!result && !loading && !hasResultError && (
@@ -2945,8 +2948,7 @@ const replyQuestionPreview = getResultPreviewText(
                       : `生成結果は表示できていますが、保存準備でエラーが出ています: ${requestSaveError || "unknown_error"}`}
                   </div>
                 )}
-              <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
-                <div style={cardTitleStyle}>
+
                 {!!result && !loading && !hasResultError && (
                   <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
                     <div style={cardTitleStyle}>
@@ -3035,6 +3037,11 @@ const replyQuestionPreview = getResultPreviewText(
                 )}
 
                 <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+              </div>
+            )}
+          </div>
+          </div>
+          </div>
       </div>
     );
 }
