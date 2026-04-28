@@ -748,6 +748,7 @@ const [marketResearchSummary, setMarketResearchSummary] = useState(null);
 const [marketResearchSummaryLoading, setMarketResearchSummaryLoading] = useState(false);
 const [marketResearchSummaryError, setMarketResearchSummaryError] = useState("");
 const [marketResearchRunId, setMarketResearchRunId] = useState("");
+const [marketResearchSubmitting, setMarketResearchSubmitting] = useState(false);
 
 const visibleNav = isAdmin
   ? NAV
@@ -1016,6 +1017,67 @@ const [form, setForm] = useState({
     const supabase = createSupabaseBrowser();
     const { data } = await supabase.auth.getSession();
     return data.session?.access_token || "";
+  };
+
+  const buildMarketResearchSearchParams = () => ({
+    brand: form.brand || "",
+    item: form.item || "",
+    era: form.era || "",
+    material: form.material || "",
+    color: form.color || "",
+    features: form.features || "",
+    size_label: form.sizeLabel || "",
+    measurements: {
+      length_cm: form.length || "",
+      width_cm: form.width || "",
+      shoulder_cm: form.shoulder || "",
+      sleeve_cm: form.sleeve || "",
+    },
+    condition: form.condition || "",
+    condition_note: form.conditionNote || "",
+    base_info: form.baseInfo || "",
+  });
+
+  const runMarketResearch = async () => {
+    setMarketResearchSubmitting(true);
+    setMarketResearchSummaryError("");
+
+    try {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        setMarketResearchSummaryError("セッション取得に失敗しました。");
+        return;
+      }
+
+      const response = await fetch("/api/market-research", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          access_token: accessToken,
+          search_params_json: buildMarketResearchSearchParams(),
+        }),
+      });
+
+      const data = await response.json().catch(() => ({}));
+      const runId = typeof data?.run_id === "string" ? data.run_id : "";
+
+      if (!response.ok || !data?.ok || !runId) {
+        setMarketResearchSummaryError("market research の実行に失敗しました。");
+        return;
+      }
+
+      setMarketResearchRunId(runId);
+      setPage("listing");
+
+      const nextUrl = new URL(window.location.href);
+      nextUrl.searchParams.set("run_id", runId);
+      window.history.replaceState({}, "", nextUrl.toString());
+    } catch {
+      setMarketResearchSummaryError("market research の実行で通信エラーが発生しました。");
+    } finally {
+      setMarketResearchSubmitting(false);
+    }
   };
 
   const buildInputTextJson = (type) => {
@@ -1846,6 +1908,18 @@ ${images.length > 0
                     : <TrendingUp size={15} />}
                   {loading ? "分析中..." : "商品を分析"}
                 </button>
+
+                <button
+                  style={{ ...btnStyle("ghost"), marginBottom: 20, width: isMobile ? "100%" : "auto", justifyContent: "center" }}
+                  onClick={runMarketResearch}
+                  disabled={marketResearchSubmitting}
+                >
+                  {marketResearchSubmitting
+                    ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
+                    : <TrendingUp size={15} />}
+                  {marketResearchSubmitting ? "実行中..." : "market research を実行"}
+                </button>
+
               </>
             )}
 
