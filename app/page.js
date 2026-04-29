@@ -1663,7 +1663,7 @@ ${images.length > 0
                 <TrendingUp size={15} />
                 {String(marketResearchSummary?.status || "").trim() === "completed_market_research"
                   ? "market research 最終結果"
-                  : "market research 最小結果"}
+                  : "market research 最終結果"}
               </div>
 
                 {marketResearchSummaryLoading ? (
