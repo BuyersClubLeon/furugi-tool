@@ -1676,19 +1676,19 @@ ${images.length > 0
                   </div>
                 ) : (
                   <div style={{ fontSize: 13, lineHeight: 1.7, color: T.text }}>
-                    <div>処理状態: {marketResearchSummary.status}</div>
-                    <div>次のステップ: {marketResearchSummary.nextStep ?? "null"}</div>
+                    <div>処理状態: {marketResearchSummary?.status}</div>
+                    <div>次のステップ: {marketResearchSummary?.nextStep ?? "null"}</div>
                     <div>
-                      進捗: {marketResearchSummary.progressStepIndex} / {marketResearchSummary.progressStepTotal}
+                      進捗: {marketResearchSummary?.progressStepIndex} / {marketResearchSummary?.progressStepTotal}
                     </div>
-                  <div>フェーズ: {marketResearchSummary.progressPhase}</div>
-<div>サンプルタイトル: {marketResearchSummary.sampleTitle}</div>
-<div>参考価格: {marketResearchSummary.samplePriceYen}</div>
-<div>Insight準備: {marketResearchSummary.insightReady}</div>
-<div>収集モード: {marketResearchSummary.collectionMode}</div>
-<div>最終更新: {marketResearchSummary.updatedAt}</div>
+                  <div>フェーズ: {marketResearchSummary?.progressPhase}</div>
+<div>サンプルタイトル: {marketResearchSummary?.sampleTitle}</div>
+<div>参考価格: {marketResearchSummary?.samplePriceYen}</div>
+<div>Insight準備: {marketResearchSummary?.insightReady}</div>
+<div>収集モード: {marketResearchSummary?.collectionMode}</div>
+<div>最終更新: {marketResearchSummary?.updatedAt}</div>
                     <div style={{ marginTop: 8 }}>
-                      要約: {marketResearchSummary.summaryText}
+                      要約: {marketResearchSummary?.summaryText}
                     </div>
                   </div>
                 )}
