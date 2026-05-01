@@ -1078,7 +1078,7 @@ const [form, setForm] = useState({
         }),
       }).catch(() => null);
 
-      await fetch("/api/market-research-collect", {
+      const collectResponse = await fetch("/api/market-research-collect", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1087,7 +1087,14 @@ const [form, setForm] = useState({
           access_token: accessToken,
           run_id: runId,
         }),
-      }).catch(() => null);
+      });
+
+      const collectData = await collectResponse.json().catch(() => ({}));
+      if (!collectResponse.ok || !collectData?.ok) {
+        setMarketResearchSummaryError(
+          `market research collect に失敗しました: ${collectData?.error || collectData?.detail || "unknown_error"}`
+        );
+      }
 
       setMarketResearchRunId(runId);
       setPage("listing");
