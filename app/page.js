@@ -1078,6 +1078,17 @@ const [form, setForm] = useState({
         }),
       }).catch(() => null);
 
+      await fetch("/api/market-research-collect", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          access_token: accessToken,
+          run_id: runId,
+        }),
+      }).catch(() => null);
+
       setMarketResearchRunId(runId);
       setPage("listing");
 
