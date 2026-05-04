@@ -1736,6 +1736,15 @@ ${images.length > 0
                   <div style={{ fontSize: 13, color: T.warning }}>
                     {marketResearchSummaryError}
                   </div>
+                ) : String(marketResearchSummary?.status || "").trim() === "completed_market_research" ? (
+                  <div style={{ fontSize: 13, lineHeight: 1.7, color: T.text }}>
+                    <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                      market research が完了しました
+                    </div>
+                    <div>
+                      {marketResearchSummary?.summaryText || "結果を取得できませんでした。"}
+                    </div>
+                  </div>
                 ) : (
                   <div style={{ fontSize: 13, lineHeight: 1.7, color: T.text }}>
                     <div>処理状態: {marketResearchSummary?.status}</div>
