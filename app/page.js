@@ -58,6 +58,46 @@ function isErrorResultText(value) {
   );
 }
 
+function formatCompletedMarketResearchSummary(summaryText) {
+  if (typeof summaryText !== "string") return summaryText || "結果を取得できませんでした。";
+
+  try {
+    const parsed = JSON.parse(summaryText);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return summaryText;
+
+    const lines = [];
+    if (typeof parsed.condition === "string" && parsed.condition.trim().length > 0) {
+      lines.push(`・状態: ${parsed.condition.trim()}`);
+    }
+
+    const measurementLabelMap = {
+      width_cm: "身幅",
+      length_cm: "着丈",
+      sleeve_cm: "袖丈",
+      shoulder_cm: "肩幅",
+    };
+    const measurements =
+      parsed.measurements &&
+      typeof parsed.measurements === "object" &&
+      !Array.isArray(parsed.measurements)
+        ? parsed.measurements
+        : null;
+    const measurementLabels = measurements
+      ? Object.keys(measurementLabelMap).filter((key) =>
+          Object.prototype.hasOwnProperty.call(measurements, key)
+        ).map((key) => measurementLabelMap[key])
+      : [];
+
+    if (measurementLabels.length > 0) {
+      lines.push(`・採寸項目: ${measurementLabels.join("、")}`);
+    }
+
+    return lines.length > 0 ? lines.join("\n") : "結果を取得できませんでした。";
+  } catch {
+    return summaryText;
+  }
+}
+
 async function callClaude(systemPrompt, userMessage, images = []) {
   const content = [];
 
@@ -1741,8 +1781,8 @@ ${images.length > 0
                     <div style={{ fontWeight: 700, marginBottom: 8 }}>
                       market research が完了しました
                     </div>
-                    <div>
-                      {marketResearchSummary?.summaryText || "結果を取得できませんでした。"}
+                    <div style={{ whiteSpace: "pre-line" }}>
+                      {formatCompletedMarketResearchSummary(marketResearchSummary?.summaryText)}
                     </div>
                   </div>
                 ) : (
