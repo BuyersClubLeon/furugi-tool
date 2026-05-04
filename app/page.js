@@ -1096,6 +1096,39 @@ const [form, setForm] = useState({
         );
       }
 
+        await fetch("/api/market-research-analyze", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            access_token: accessToken,
+            run_id: runId,
+          }),
+        }).catch(() => null);
+
+        await fetch("/api/market-research-generate-insights", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            access_token: accessToken,
+            run_id: runId,
+          }),
+        }).catch(() => null);
+
+        await fetch("/api/market-research-complete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            access_token: accessToken,
+            run_id: runId,
+          }),
+        }).catch(() => null);
+
       setMarketResearchRunId(runId);
       setPage("listing");
 
