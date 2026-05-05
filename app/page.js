@@ -1097,13 +1097,16 @@ const [form, setForm] = useState({
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
 
   const updates = {};
+  let skippedBecauseFilled = false;
 
-  if (
-    typeof parsed.condition === "string" &&
-    parsed.condition.trim().length > 0 &&
-    !String(form.condition || "").trim()
-  ) {
-    updates.condition = parsed.condition.trim();
+  const conditionValue =
+    typeof parsed.condition === "string" ? parsed.condition.trim() : "";
+  if (conditionValue) {
+    if (!String(form.condition || "").trim()) {
+      updates.condition = conditionValue;
+    } else {
+      skippedBecauseFilled = true;
+    }
   }
 
   const measurements =
@@ -1120,10 +1123,14 @@ const [form, setForm] = useState({
     shoulder_cm: "shoulder",
   };
 
+  let hasMeasurementKeys = false;
+  let hasMeasurementValue = false;
+
   if (measurements) {
     Object.entries(measurementKeyMap).forEach(([sourceKey, targetKey]) => {
       if (!Object.prototype.hasOwnProperty.call(measurements, sourceKey)) return;
-      if (String(form[targetKey] || "").trim()) return;
+
+      hasMeasurementKeys = true;
 
       const value = measurements[sourceKey];
       if (value === null || value === undefined) return;
@@ -1131,7 +1138,13 @@ const [form, setForm] = useState({
       const valueText = String(value).trim();
       if (!valueText) return;
 
-      updates[targetKey] = valueText;
+      hasMeasurementValue = true;
+
+      if (!String(form[targetKey] || "").trim()) {
+        updates[targetKey] = valueText;
+      } else {
+        skippedBecauseFilled = true;
+      }
     });
   }
 
@@ -1141,11 +1154,16 @@ const [form, setForm] = useState({
     setForm((prev) => ({ ...prev, ...updates }));
   }
 
-  setMarketResearchReflectMessage(
-    hasUpdates
-      ? "商品情報へ反映しました"
-      : "反映できる空欄項目がありませんでした"
-  );
+  let reflectMessage = "反映できる入力値がありませんでした";
+  if (hasUpdates) {
+    reflectMessage = "商品情報へ反映しました";
+  } else if ((conditionValue || hasMeasurementValue) && skippedBecauseFilled) {
+    reflectMessage = "入力済みのため、上書きせずに維持しました";
+  } else if (hasMeasurementKeys && !hasMeasurementValue) {
+    reflectMessage = "採寸項目は検出されていますが、数値は未取得です";
+  }
+
+  setMarketResearchReflectMessage(reflectMessage);
 };
 
 const runMarketResearch = async () => {
