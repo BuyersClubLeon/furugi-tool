@@ -1854,6 +1854,24 @@ ${images.length > 0
                     <div style={{ whiteSpace: "pre-line" }}>
                       {formatCompletedMarketResearchSummary(marketResearchSummary?.summaryText)}
                     </div>
+                    <div style={{ marginTop: 12 }}>
+                      <button
+                        type="button"
+                        onClick={applyMarketResearchToProduct}
+                        style={{
+                          ...btnStyle("ghost"),
+                          padding: "6px 10px",
+                          fontSize: 12,
+                        }}
+                      >
+                        商品情報へ反映
+                      </button>
+                      {marketResearchReflectMessage ? (
+                        <div style={{ marginTop: 6, fontSize: 11, color: T.textMuted }}>
+                          {marketResearchReflectMessage}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 ) : (
                   <div style={{ fontSize: 13, lineHeight: 1.7, color: T.text }}>
