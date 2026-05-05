@@ -789,6 +789,7 @@ const [marketResearchSummaryLoading, setMarketResearchSummaryLoading] = useState
 const [marketResearchSummaryError, setMarketResearchSummaryError] = useState("");
 const [marketResearchRunId, setMarketResearchRunId] = useState("");
 const [marketResearchSubmitting, setMarketResearchSubmitting] = useState(false);
+const [marketResearchReflectMessage, setMarketResearchReflectMessage] = useState("");
 
 const visibleNav = isAdmin
   ? NAV
@@ -1078,7 +1079,76 @@ const [form, setForm] = useState({
     base_info: form.baseInfo || "",
   });
 
-  const runMarketResearch = async () => {
+  const applyMarketResearchToProduct = () => {
+  const summaryText =
+    typeof marketResearchSummary?.summaryText === "string"
+      ? marketResearchSummary.summaryText
+      : "";
+
+  if (!summaryText.trim()) return;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(summaryText);
+  } catch {
+    return;
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
+
+  const updates = {};
+
+  if (
+    typeof parsed.condition === "string" &&
+    parsed.condition.trim().length > 0 &&
+    !String(form.condition || "").trim()
+  ) {
+    updates.condition = parsed.condition.trim();
+  }
+
+  const measurements =
+    parsed.measurements &&
+    typeof parsed.measurements === "object" &&
+    !Array.isArray(parsed.measurements)
+      ? parsed.measurements
+      : null;
+
+  const measurementKeyMap = {
+    width_cm: "width",
+    length_cm: "length",
+    sleeve_cm: "sleeve",
+    shoulder_cm: "shoulder",
+  };
+
+  if (measurements) {
+    Object.entries(measurementKeyMap).forEach(([sourceKey, targetKey]) => {
+      if (!Object.prototype.hasOwnProperty.call(measurements, sourceKey)) return;
+      if (String(form[targetKey] || "").trim()) return;
+
+      const value = measurements[sourceKey];
+      if (value === null || value === undefined) return;
+
+      const valueText = String(value).trim();
+      if (!valueText) return;
+
+      updates[targetKey] = valueText;
+    });
+  }
+
+  const hasUpdates = Object.keys(updates).length > 0;
+
+  if (hasUpdates) {
+    setForm((prev) => ({ ...prev, ...updates }));
+  }
+
+  setMarketResearchReflectMessage(
+    hasUpdates
+      ? "商品情報へ反映しました"
+      : "反映できる空欄項目がありませんでした"
+  );
+};
+
+const runMarketResearch = async () => {
     setMarketResearchSubmitting(true);
     setMarketResearchSummaryError("");
 
