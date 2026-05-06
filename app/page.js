@@ -370,97 +370,125 @@ function prettyJson(value) {
 
 
 
-function hasMarketResearchReflectableValue(summaryText, form) {
-  if (typeof summaryText !== "string" || !summaryText.trim()) return false;
+const MARKET_RESEARCH_REFLECT_FIELDS = [
+  {
+    targetKey: "brand",
+    label: "ブランド名",
+    jsonKeys: ["brand", "brandName", "brand_name", "ブランド", "ブランド名"],
+    textLabels: ["ブランド名", "ブランド"],
+  },
+  {
+    targetKey: "item",
+    label: "アイテム名",
+    jsonKeys: ["item", "itemName", "item_name", "category", "アイテム", "アイテム名"],
+    textLabels: ["アイテム名", "アイテム"],
+  },
+  {
+    targetKey: "material",
+    label: "素材",
+    jsonKeys: ["material", "素材"],
+    textLabels: ["素材"],
+  },
+  {
+    targetKey: "color",
+    label: "カラー",
+    jsonKeys: ["color", "カラー", "色"],
+    textLabels: ["カラー", "色"],
+  },
+  {
+    targetKey: "sizeLabel",
+    label: "サイズ表記",
+    jsonKeys: ["sizeLabel", "size_label", "size", "サイズ", "サイズ表記"],
+    textLabels: ["サイズ表記", "サイズ"],
+  },
+  {
+    targetKey: "condition",
+    label: "状態",
+    jsonKeys: ["condition", "状態"],
+    textLabels: ["状態"],
+  },
+];
 
-  let parsed;
-  try {
-    parsed = JSON.parse(summaryText);
-  } catch {
-    return false;
+const MARKET_RESEARCH_EMPTY_VALUES = new Set(["", "不明", "未取得", "-"]);
+
+function normalizeMarketResearchReflectValue(value) {
+  if (value === null || value === undefined) return "";
+
+  const valueText = String(value).trim();
+  return MARKET_RESEARCH_EMPTY_VALUES.has(valueText) ? "" : valueText;
+}
+
+function findMarketResearchJsonValue(parsed, jsonKeys) {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "";
+
+  for (const key of jsonKeys) {
+    if (Object.prototype.hasOwnProperty.call(parsed, key)) {
+      const value = normalizeMarketResearchReflectValue(parsed[key]);
+      if (value) return value;
+    }
   }
 
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
-
-  const conditionValue =
-    typeof parsed.condition === "string" ? parsed.condition.trim() : "";
-
-  if (conditionValue && !String(form.condition || "").trim()) {
-    return true;
+  for (const nestedKey of ["normalized_search_params", "product", "item_info", "product_info"]) {
+    const nestedValue = parsed[nestedKey];
+    if (nestedValue && typeof nestedValue === "object" && !Array.isArray(nestedValue)) {
+      const value = findMarketResearchJsonValue(nestedValue, jsonKeys);
+      if (value) return value;
+    }
   }
 
-  const measurements =
-    parsed.measurements &&
-    typeof parsed.measurements === "object" &&
-    !Array.isArray(parsed.measurements)
-      ? parsed.measurements
-      : null;
+  return "";
+}
 
-  if (!measurements) return false;
+function findMarketResearchTextValue(summaryText, textLabels) {
+  if (typeof summaryText !== "string" || !summaryText.trim()) return "";
 
-  const measurementKeyMap = {
-    width_cm: "width",
-    length_cm: "length",
-    sleeve_cm: "sleeve",
-    shoulder_cm: "shoulder",
-  };
+  const escapedLabels = textLabels.map((label) => label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const labelPattern = escapedLabels.join("|");
+  const matcher = new RegExp(`(?:^|\\n)\\s*(?:・\\s*)?(?:${labelPattern})\\s*[:：]\\s*([^\\n]+)`, "i");
+  const match = summaryText.match(matcher);
 
-  return Object.entries(measurementKeyMap).some(([sourceKey, targetKey]) => {
-    if (!Object.prototype.hasOwnProperty.call(measurements, sourceKey)) return false;
+  return normalizeMarketResearchReflectValue(match?.[1]);
+}
 
-    const value = measurements[sourceKey];
-    if (value === null || value === undefined) return false;
+function buildMarketResearchReflectSource(summaryText, form) {
+  if (typeof summaryText !== "string" || !summaryText.trim()) {
+    return { values: {}, reflectableLabels: [], filledLabels: [] };
+  }
 
-    const valueText = String(value).trim();
-    if (!/^\d+(?:\.\d+)?$/.test(valueText)) return false;
+  const parsed = safeJsonParse(summaryText);
+  const values = {};
+  const reflectableLabels = [];
+  const filledLabels = [];
 
-    return !String(form[targetKey] || "").trim();
+  MARKET_RESEARCH_REFLECT_FIELDS.forEach((field) => {
+    const sourceValue =
+      findMarketResearchJsonValue(parsed, field.jsonKeys) ||
+      findMarketResearchTextValue(summaryText, field.textLabels);
+
+    if (!sourceValue) return;
+
+    values[field.targetKey] = sourceValue;
+
+    if (!String(form[field.targetKey] || "").trim()) {
+      reflectableLabels.push(field.label);
+    } else {
+      filledLabels.push(field.label);
+    }
   });
+
+  return { values, reflectableLabels, filledLabels };
+}
+
+function hasMarketResearchReflectableValue(summaryText, form) {
+  return buildMarketResearchReflectSource(summaryText, form).reflectableLabels.length > 0;
 }
 
 function buildMarketResearchReflectPreview(summaryText, form) {
-  if (typeof summaryText !== "string" || !summaryText.trim()) return "";
+  const { reflectableLabels } = buildMarketResearchReflectSource(summaryText, form);
 
-  let parsed;
-  try {
-    parsed = JSON.parse(summaryText);
-  } catch {
-    return "";
-  }
-
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "";
-
-  const messages = [];
-  const conditionValue =
-    typeof parsed.condition === "string" ? parsed.condition.trim() : "";
-
-  if (conditionValue && !String(form.condition || "").trim()) {
-    messages.push("反映できる内容: 状態");
-  }
-
-  const measurements =
-    parsed.measurements &&
-    typeof parsed.measurements === "object" &&
-    !Array.isArray(parsed.measurements)
-      ? parsed.measurements
-      : null;
-
-  const measurementKeys = measurements ? Object.keys(measurements) : [];
-  const hasMeasurementKeys = measurementKeys.length > 0;
-  const hasMeasurementValue = measurements
-    ? measurementKeys.some((key) => {
-        const value = measurements[key];
-        if (value === null || value === undefined) return false;
-
-        return /^\d+(?:\.\d+)?$/.test(String(value).trim());
-      })
-    : false;
-
-  if (hasMeasurementKeys && !hasMeasurementValue) {
-    messages.push("採寸は数値未取得のため、手入力が必要です");
-  }
-
-  return messages.join("\n");
+  return reflectableLabels.length > 0
+    ? `反映できる内容: ${reflectableLabels.join("、")}`
+    : "";
 }
 
 
@@ -1184,81 +1212,39 @@ const [form, setForm] = useState({
 
     if (!summaryText.trim()) return;
 
-    let parsed;
-    try {
-      parsed = JSON.parse(summaryText);
-    } catch {
-      return;
-    }
-
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
-
+    const { values, reflectableLabels, filledLabels } = buildMarketResearchReflectSource(
+      summaryText,
+      form
+    );
     const updates = {};
+
+    MARKET_RESEARCH_REFLECT_FIELDS.forEach((field) => {
+      if (!reflectableLabels.includes(field.label)) return;
+      updates[field.targetKey] = values[field.targetKey];
+    });
+
     const messages = [];
-    let skippedBecauseFilled = false;
-
-    const conditionValue =
-      typeof parsed.condition === "string" ? parsed.condition.trim() : "";
-    if (conditionValue) {
-      if (!String(form.condition || "").trim()) {
-        updates.condition = conditionValue;
-      } else {
-        skippedBecauseFilled = true;
-      }
-    }
-
-    const measurements =
-      parsed.measurements &&
-      typeof parsed.measurements === "object" &&
-      !Array.isArray(parsed.measurements)
-        ? parsed.measurements
-        : null;
-
-    const measurementKeyMap = {
-      width_cm: "width",
-      length_cm: "length",
-      sleeve_cm: "sleeve",
-      shoulder_cm: "shoulder",
-    };
-
-    let hasMeasurementKeys = false;
-    let hasMeasurementValue = false;
-
-    if (measurements) {
-      Object.entries(measurementKeyMap).forEach(([sourceKey, targetKey]) => {
-        if (!Object.prototype.hasOwnProperty.call(measurements, sourceKey)) return;
-
-        hasMeasurementKeys = true;
-
-        const value = measurements[sourceKey];
-        if (value === null || value === undefined) return;
-
-        const valueText = String(value).trim();
-        if (!/^\d+(?:\.\d+)?$/.test(valueText)) return;
-
-        hasMeasurementValue = true;
-
-        if (!String(form[targetKey] || "").trim()) {
-          updates[targetKey] = valueText;
-        } else {
-          skippedBecauseFilled = true;
-        }
-      });
-    }
-
     const hasUpdates = Object.keys(updates).length > 0;
 
     if (hasUpdates) {
-      setForm((prev) => ({ ...prev, ...updates }));
+      setForm((prev) => {
+        const safeUpdates = {};
+
+        Object.entries(updates).forEach(([key, value]) => {
+          if (!String(prev[key] || "").trim()) {
+            safeUpdates[key] = value;
+          }
+        });
+
+        return Object.keys(safeUpdates).length > 0
+          ? { ...prev, ...safeUpdates }
+          : prev;
+      });
       messages.push("商品情報へ反映しました");
     }
 
-    if (skippedBecauseFilled) {
-      messages.push("入力済みのため維持: 状態");
-    }
-
-    if (hasMeasurementKeys && !hasMeasurementValue) {
-      messages.push("採寸は数値未取得のため、手入力してください");
+    if (filledLabels.length > 0) {
+      messages.push(`入力済みのため維持: ${filledLabels.join("、")}`);
     }
 
     setMarketResearchReflectMessage(
