@@ -1678,6 +1678,10 @@ ${images.length > 0
     marketResearchSummary?.summaryText,
     form
   );
+  const shouldShowMeasurementManualInputGuide = marketResearchReflectPreview.includes(
+    "採寸は数値未取得"
+  );
+
 
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
@@ -2062,6 +2066,24 @@ ${images.length > 0
                   </div>
 
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: 12 }}>
+                    {shouldShowMeasurementManualInputGuide ? (
+                      <div
+                        style={{
+                          gridColumn: "1 / -1",
+                          marginBottom: 12,
+                          padding: "10px 12px",
+                          borderRadius: 8,
+                          border: `1px solid ${T.warning}35`,
+                          background: `${T.warning}12`,
+                          color: T.warning,
+                          fontSize: 12,
+                          lineHeight: 1.6,
+                        }}
+                      >
+                        <div>市場調査では採寸数値を取得できませんでした。</div>
+                        <div>着丈・身幅・肩幅・袖丈を手入力してください。</div>
+                      </div>
+                    ) : null}
                     <FieldGroup label="着丈">
                       <input
                         style={inputStyle}
