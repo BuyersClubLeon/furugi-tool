@@ -590,6 +590,7 @@ const NAV = [
 ];
 
 const CONDITIONS = [
+  { value: "", label: "未選択" },
   { value: "S", label: "S - 未使用・デッドストック" },
   { value: "A", label: "A - 目立つ傷汚れなし・良好" },
   { value: "B", label: "B - 多少の使用感あり" },
@@ -1119,7 +1120,7 @@ const [form, setForm] = useState({
   width: "",
   shoulder: "",
   sleeve: "",
-  condition: "A",
+  condition: "",
   conditionNote: "",
   baseInfo: "",
 });
