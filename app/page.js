@@ -701,6 +701,23 @@ function getShortRequestId(value) {
   return `${value.slice(0, 8)}...${value.slice(-6)}`;
 }
 
+const INITIAL_PRODUCT_FORM = {
+  brand: "",
+  item: "",
+  era: "",
+  material: "",
+  color: "",
+  features: "",
+  sizeLabel: "",
+  length: "",
+  width: "",
+  shoulder: "",
+  sleeve: "",
+  condition: "",
+  conditionNote: "",
+  baseInfo: "",
+};
+
 function buildFeedbackSearchTarget(item) {
   const inputTextJson = item?.request?.input_text_json;
   const baseListing = inputTextJson?.normalized_input?.listing;
@@ -1336,22 +1353,7 @@ summaryJson,
   fetchMarketResearchResult();
 }, [page]);
 
-const [form, setForm] = useState({
-  brand: "",
-  item: "",
-  era: "",
-  material: "",
-  color: "",
-  features: "",
-  sizeLabel: "",
-  length: "",
-  width: "",
-  shoulder: "",
-  sleeve: "",
-  condition: "",
-  conditionNote: "",
-  baseInfo: "",
-});
+const [form, setForm] = useState({ ...INITIAL_PRODUCT_FORM });
   const [profitForm, setProfitForm] = useState({
     purchasePrice: "",
     shipping: "1000",
@@ -1372,10 +1374,12 @@ const [form, setForm] = useState({
   };
 
   const resetResultArea = () => {
+    setForm({ ...INITIAL_PRODUCT_FORM });
     setResult("");
     setRequestId("");
     setRequestSaveError("");
     setGeneratedFeatureType("");
+    setMarketResearchReflectMessage("");
     resetFeedback();
   };
 
@@ -2429,6 +2433,7 @@ ${images.length > 0
                   </button>
 
                   <button
+                    type="button"
                     style={{ ...btnStyle("ghost"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
                     onClick={resetResultArea}
                   >
