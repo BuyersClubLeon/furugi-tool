@@ -1857,8 +1857,8 @@ ${images.length > 0
                 <div style={cardTitleStyle}>
                 <TrendingUp size={15} />
                 {String(marketResearchSummary?.status || "").trim() === "completed_market_research"
-                  ? "market research 最終結果"
-                  : "market research 最終結果"}
+                  ? "市場調査結果"
+                  : "市場調査結果"}
               </div>
 
                 {marketResearchSummaryLoading ? (
@@ -1872,7 +1872,7 @@ ${images.length > 0
                 ) : String(marketResearchSummary?.status || "").trim() === "completed_market_research" ? (
                   <div style={{ fontSize: 13, lineHeight: 1.7, color: T.text }}>
                     <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                      market research が完了しました
+                      市場調査が完了しました
                     </div>
                     <div style={{ whiteSpace: "pre-line" }}>
                       {formatCompletedMarketResearchSummary(marketResearchSummary?.summaryText)}
