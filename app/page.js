@@ -368,6 +368,53 @@ function prettyJson(value) {
   }
 }
 
+
+function buildMarketResearchReflectPreview(summaryText, form) {
+  if (typeof summaryText !== "string" || !summaryText.trim()) return "";
+
+  let parsed;
+  try {
+    parsed = JSON.parse(summaryText);
+  } catch {
+    return "";
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "";
+
+  const messages = [];
+  const conditionValue =
+    typeof parsed.condition === "string" ? parsed.condition.trim() : "";
+
+  if (conditionValue && !String(form.condition || "").trim()) {
+    messages.push("反映できる内容: 状態");
+  }
+
+  const measurements =
+    parsed.measurements &&
+    typeof parsed.measurements === "object" &&
+    !Array.isArray(parsed.measurements)
+      ? parsed.measurements
+      : null;
+
+  const measurementKeys = measurements ? Object.keys(measurements) : [];
+  const hasMeasurementKeys = measurementKeys.length > 0;
+  const hasMeasurementValue = measurements
+    ? measurementKeys.some((key) => {
+        const value = measurements[key];
+        if (value === null || value === undefined) return false;
+
+        return /^\d+(?:\.\d+)?$/.test(String(value).trim());
+      })
+    : false;
+
+  if (hasMeasurementKeys && !hasMeasurementValue) {
+    messages.push("採寸は数値未取得のため、手入力が必要です");
+  }
+
+  return messages.join("\n");
+}
+
+
 function buildFeedbackSummary(item) {
   const parts = [];
   if (item?.issue_type) parts.push(`修正点: ${getIssueLabel(item.issue_type)}`);
@@ -1627,6 +1674,11 @@ ${images.length > 0
     { total: 0, good: 0, close: 0, bad: 0 }
   );
 
+  const marketResearchReflectPreview = buildMarketResearchReflectPreview(
+    marketResearchSummary?.summaryText,
+    form
+  );
+
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       {isMobile && sidebarOpen && (
@@ -1878,6 +1930,18 @@ ${images.length > 0
                       {formatCompletedMarketResearchSummary(marketResearchSummary?.summaryText)}
                     </div>
                     <div style={{ marginTop: 12 }}>
+                      {marketResearchReflectPreview ? (
+                        <div
+                          style={{
+                            marginBottom: 6,
+                            fontSize: 11,
+                            color: T.textMuted,
+                            whiteSpace: "pre-line",
+                          }}
+                        >
+                          {marketResearchReflectPreview}
+                        </div>
+                      ) : null}
                       <button
                         type="button"
                         onClick={applyMarketResearchToProduct}
