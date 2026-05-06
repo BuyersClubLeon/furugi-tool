@@ -1080,91 +1080,96 @@ const [form, setForm] = useState({
   });
 
   const applyMarketResearchToProduct = () => {
-  const summaryText =
-    typeof marketResearchSummary?.summaryText === "string"
-      ? marketResearchSummary.summaryText
-      : "";
+    const summaryText =
+      typeof marketResearchSummary?.summaryText === "string"
+        ? marketResearchSummary.summaryText
+        : "";
 
-  if (!summaryText.trim()) return;
+    if (!summaryText.trim()) return;
 
-  let parsed;
-  try {
-    parsed = JSON.parse(summaryText);
-  } catch {
-    return;
-  }
-
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
-
-  const updates = {};
-  let skippedBecauseFilled = false;
-
-  const conditionValue =
-    typeof parsed.condition === "string" ? parsed.condition.trim() : "";
-  if (conditionValue) {
-    if (!String(form.condition || "").trim()) {
-      updates.condition = conditionValue;
-    } else {
-      skippedBecauseFilled = true;
+    let parsed;
+    try {
+      parsed = JSON.parse(summaryText);
+    } catch {
+      return;
     }
-  }
 
-  const measurements =
-    parsed.measurements &&
-    typeof parsed.measurements === "object" &&
-    !Array.isArray(parsed.measurements)
-      ? parsed.measurements
-      : null;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
 
-  const measurementKeyMap = {
-    width_cm: "width",
-    length_cm: "length",
-    sleeve_cm: "sleeve",
-    shoulder_cm: "shoulder",
-  };
+    const updates = {};
+    const messages = [];
+    let skippedBecauseFilled = false;
 
-  let hasMeasurementKeys = false;
-  let hasMeasurementValue = false;
-
-  if (measurements) {
-    Object.entries(measurementKeyMap).forEach(([sourceKey, targetKey]) => {
-      if (!Object.prototype.hasOwnProperty.call(measurements, sourceKey)) return;
-
-      hasMeasurementKeys = true;
-
-      const value = measurements[sourceKey];
-      if (value === null || value === undefined) return;
-
-      const valueText = String(value).trim();
-      if (!valueText) return;
-
-      hasMeasurementValue = true;
-
-      if (!String(form[targetKey] || "").trim()) {
-        updates[targetKey] = valueText;
+    const conditionValue =
+      typeof parsed.condition === "string" ? parsed.condition.trim() : "";
+    if (conditionValue) {
+      if (!String(form.condition || "").trim()) {
+        updates.condition = conditionValue;
       } else {
         skippedBecauseFilled = true;
       }
-    });
-  }
+    }
 
-  const hasUpdates = Object.keys(updates).length > 0;
+    const measurements =
+      parsed.measurements &&
+      typeof parsed.measurements === "object" &&
+      !Array.isArray(parsed.measurements)
+        ? parsed.measurements
+        : null;
 
-  if (hasUpdates) {
-    setForm((prev) => ({ ...prev, ...updates }));
-  }
+    const measurementKeyMap = {
+      width_cm: "width",
+      length_cm: "length",
+      sleeve_cm: "sleeve",
+      shoulder_cm: "shoulder",
+    };
 
-  let reflectMessage = "反映できる入力値がありませんでした";
-  if (hasUpdates) {
-    reflectMessage = "商品情報へ反映しました";
-  } else if ((conditionValue || hasMeasurementValue) && skippedBecauseFilled) {
-    reflectMessage = "入力済みのため、上書きせずに維持しました";
-  } else if (hasMeasurementKeys && !hasMeasurementValue) {
-    reflectMessage = "採寸項目は検出されていますが、数値は未取得です";
-  }
+    let hasMeasurementKeys = false;
+    let hasMeasurementValue = false;
 
-  setMarketResearchReflectMessage(reflectMessage);
-};
+    if (measurements) {
+      Object.entries(measurementKeyMap).forEach(([sourceKey, targetKey]) => {
+        if (!Object.prototype.hasOwnProperty.call(measurements, sourceKey)) return;
+
+        hasMeasurementKeys = true;
+
+        const value = measurements[sourceKey];
+        if (value === null || value === undefined) return;
+
+        const valueText = String(value).trim();
+        if (!/^\d+(?:\.\d+)?$/.test(valueText)) return;
+
+        hasMeasurementValue = true;
+
+        if (!String(form[targetKey] || "").trim()) {
+          updates[targetKey] = valueText;
+        } else {
+          skippedBecauseFilled = true;
+        }
+      });
+    }
+
+    const hasUpdates = Object.keys(updates).length > 0;
+
+    if (hasUpdates) {
+      setForm((prev) => ({ ...prev, ...updates }));
+      messages.push("商品情報へ反映しました");
+    }
+
+    if (skippedBecauseFilled) {
+      messages.push("入力済みのため、上書きせずに維持しました");
+    }
+
+    if (hasMeasurementKeys && !hasMeasurementValue) {
+      messages.push("採寸項目は検出されていますが、数値は未取得です");
+    }
+
+    setMarketResearchReflectMessage(
+      messages.length > 0
+        ? messages.join("\n")
+        : "反映できる入力値がありませんでした"
+    );
+  };
 
 const runMarketResearch = async () => {
     setMarketResearchSubmitting(true);
@@ -1885,7 +1890,14 @@ ${images.length > 0
                         商品情報へ反映
                       </button>
                       {marketResearchReflectMessage ? (
-                        <div style={{ marginTop: 6, fontSize: 11, color: T.textMuted }}>
+                        <div
+                          style={{
+                            marginTop: 6,
+                            fontSize: 11,
+                            color: T.textMuted,
+                            whiteSpace: "pre-line",
+                          }}
+                        >
                           {marketResearchReflectMessage}
                         </div>
                       ) : null}
