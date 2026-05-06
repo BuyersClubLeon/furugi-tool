@@ -1157,11 +1157,11 @@ const [form, setForm] = useState({
     }
 
     if (skippedBecauseFilled) {
-      messages.push("入力済みのため、上書きせずに維持しました");
+      messages.push("入力済みのため維持: 状態");
     }
 
     if (hasMeasurementKeys && !hasMeasurementValue) {
-      messages.push("採寸項目は検出されていますが、数値は未取得です");
+      messages.push("採寸は数値未取得のため、手入力してください");
     }
 
     setMarketResearchReflectMessage(
