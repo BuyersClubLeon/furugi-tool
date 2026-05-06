@@ -369,6 +369,55 @@ function prettyJson(value) {
 }
 
 
+
+function hasMarketResearchReflectableValue(summaryText, form) {
+  if (typeof summaryText !== "string" || !summaryText.trim()) return false;
+
+  let parsed;
+  try {
+    parsed = JSON.parse(summaryText);
+  } catch {
+    return false;
+  }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return false;
+
+  const conditionValue =
+    typeof parsed.condition === "string" ? parsed.condition.trim() : "";
+
+  if (conditionValue && !String(form.condition || "").trim()) {
+    return true;
+  }
+
+  const measurements =
+    parsed.measurements &&
+    typeof parsed.measurements === "object" &&
+    !Array.isArray(parsed.measurements)
+      ? parsed.measurements
+      : null;
+
+  if (!measurements) return false;
+
+  const measurementKeyMap = {
+    width_cm: "width",
+    length_cm: "length",
+    sleeve_cm: "sleeve",
+    shoulder_cm: "shoulder",
+  };
+
+  return Object.entries(measurementKeyMap).some(([sourceKey, targetKey]) => {
+    if (!Object.prototype.hasOwnProperty.call(measurements, sourceKey)) return false;
+
+    const value = measurements[sourceKey];
+    if (value === null || value === undefined) return false;
+
+    const valueText = String(value).trim();
+    if (!/^\d+(?:\.\d+)?$/.test(valueText)) return false;
+
+    return !String(form[targetKey] || "").trim();
+  });
+}
+
 function buildMarketResearchReflectPreview(summaryText, form) {
   if (typeof summaryText !== "string" || !summaryText.trim()) return "";
 
@@ -1678,6 +1727,14 @@ ${images.length > 0
     marketResearchSummary?.summaryText,
     form
   );
+  const canApplyMarketResearchToProduct = hasMarketResearchReflectableValue(
+    marketResearchSummary?.summaryText,
+    form
+  );
+  const marketResearchNoAutoInputMessage = canApplyMarketResearchToProduct
+    ? ""
+    : "反映できる自動入力値はありません
+採寸は手入力してください";
   const shouldShowMeasurementManualInputGuide = marketResearchReflectPreview.includes(
     "採寸は数値未取得"
   );
@@ -1949,14 +2006,29 @@ ${images.length > 0
                       <button
                         type="button"
                         onClick={applyMarketResearchToProduct}
+                        disabled={!canApplyMarketResearchToProduct}
                         style={{
                           ...btnStyle("ghost"),
                           padding: "6px 10px",
                           fontSize: 12,
+                          opacity: canApplyMarketResearchToProduct ? 1 : 0.5,
+                          cursor: canApplyMarketResearchToProduct ? "pointer" : "not-allowed",
                         }}
                       >
                         商品情報へ反映
                       </button>
+                      {marketResearchNoAutoInputMessage ? (
+                        <div
+                          style={{
+                            marginTop: 6,
+                            fontSize: 11,
+                            color: T.textMuted,
+                            whiteSpace: "pre-line",
+                          }}
+                        >
+                          {marketResearchNoAutoInputMessage}
+                        </div>
+                      ) : null}
                       {marketResearchReflectMessage ? (
                         <div
                           style={{
