@@ -1733,8 +1733,7 @@ ${images.length > 0
   );
   const marketResearchNoAutoInputMessage = canApplyMarketResearchToProduct
     ? ""
-    : "反映できる自動入力値はありません
-採寸は手入力してください";
+    : "反映できる自動入力値はありません\n採寸は手入力してください";
   const shouldShowMeasurementManualInputGuide = marketResearchReflectPreview.includes(
     "採寸は数値未取得"
   );
