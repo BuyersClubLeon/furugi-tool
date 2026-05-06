@@ -410,6 +410,84 @@ function normalizeMarketResearchReflectValue(value) {
   return MARKET_RESEARCH_EMPTY_VALUES.has(valueText) ? "" : valueText;
 }
 
+
+function buildMarketResearchNormalizedSearchParamsFallback(values = {}) {
+  const fallback = {};
+
+  MARKET_RESEARCH_REFLECT_FIELDS.forEach((field) => {
+    const value = normalizeMarketResearchReflectValue(values[field.targetKey]);
+    if (value) fallback[field.targetKey] = value;
+  });
+
+  return fallback;
+}
+
+function mergeMarketResearchNormalizedSearchParams(primary, fallback) {
+  const primaryParams = isPlainObject(primary) ? primary : {};
+  const fallbackParams = isPlainObject(fallback) ? fallback : {};
+  const merged = { ...primaryParams };
+
+  MARKET_RESEARCH_REFLECT_FIELDS.forEach((field) => {
+    const existingValue = findMarketResearchJsonValue(primaryParams, field.jsonKeys);
+    const fallbackValue = normalizeMarketResearchReflectValue(fallbackParams[field.targetKey]);
+
+    if (!existingValue && fallbackValue) {
+      merged[field.targetKey] = fallbackValue;
+    }
+  });
+
+  return merged;
+}
+
+
+function buildMarketResearchSummaryWithNormalizedFallback(prevSummary, fallbackParams) {
+  if (!isPlainObject(fallbackParams) || Object.keys(fallbackParams).length === 0) {
+    return prevSummary;
+  }
+
+  const prevSummaryObject = isPlainObject(prevSummary) ? prevSummary : {};
+  const summaryJson = isPlainObject(prevSummaryObject.summaryJson)
+    ? prevSummaryObject.summaryJson
+    : {};
+  const currentNormalizedSearchParams = isPlainObject(prevSummaryObject.normalized_search_params)
+    ? prevSummaryObject.normalized_search_params
+    : isPlainObject(summaryJson.normalized_search_params)
+      ? summaryJson.normalized_search_params
+      : {};
+  const normalizedSearchParams = mergeMarketResearchNormalizedSearchParams(
+    currentNormalizedSearchParams,
+    fallbackParams
+  );
+  const nextSummaryJson = {
+    ...summaryJson,
+    normalized_search_params: mergeMarketResearchNormalizedSearchParams(
+      summaryJson.normalized_search_params,
+      fallbackParams
+    ),
+  };
+  const fallbackSummaryText = prettyJson(normalizedSearchParams) || "要約なし";
+
+  return {
+    status: prevSummaryObject.status || "completed_market_research",
+    nextStep: Object.prototype.hasOwnProperty.call(prevSummaryObject, "nextStep")
+      ? prevSummaryObject.nextStep
+      : null,
+    progressStepIndex: prevSummaryObject.progressStepIndex || "-",
+    progressStepTotal: prevSummaryObject.progressStepTotal || "-",
+    progressPhase: prevSummaryObject.progressPhase || "-",
+    sampleTitle: prevSummaryObject.sampleTitle || "-",
+    samplePriceYen: prevSummaryObject.samplePriceYen || "-",
+    insightReady: prevSummaryObject.insightReady || "-",
+    collectionMode: prevSummaryObject.collectionMode || "-",
+    updatedAt: prevSummaryObject.updatedAt || "-",
+    summaryText: prevSummaryObject.summaryText || fallbackSummaryText,
+    reflectPreviewSummaryText:
+      prevSummaryObject.reflectPreviewSummaryText || fallbackSummaryText,
+    normalized_search_params: normalizedSearchParams,
+    summaryJson: nextSummaryJson,
+  };
+}
+
 function collectMarketResearchReflectSources(source) {
   const jsonSources = [];
   const textSources = [];
@@ -1017,6 +1095,7 @@ const [marketResearchSummaryError, setMarketResearchSummaryError] = useState("")
 const [marketResearchRunId, setMarketResearchRunId] = useState("");
 const [marketResearchSubmitting, setMarketResearchSubmitting] = useState(false);
 const [marketResearchReflectMessage, setMarketResearchReflectMessage] = useState("");
+const photoAnalysisMarketSearchParamsRef = useRef({});
 
 const visibleNav = isAdmin
   ? NAV
@@ -1164,12 +1243,16 @@ useEffect(() => {
             ? data.run.status
             : "-";
 
-      const normalizedSearchParams =
+      const apiNormalizedSearchParams =
         summaryJson.normalized_search_params &&
         typeof summaryJson.normalized_search_params === "object" &&
         !Array.isArray(summaryJson.normalized_search_params)
           ? summaryJson.normalized_search_params
           : {};
+      const normalizedSearchParams = mergeMarketResearchNormalizedSearchParams(
+        apiNormalizedSearchParams,
+        photoAnalysisMarketSearchParamsRef.current
+      );
       const reflectPreviewSummaryText =
         typeof summaryJson.reflectPreviewSummaryText === "string" &&
         summaryJson.reflectPreviewSummaryText.trim().length > 0
@@ -1647,6 +1730,12 @@ const runMarketResearch = async () => {
       const cleaned = raw.replace(/```json/g, "").replace(/```/g, "").trim();
       const parsed = JSON.parse(cleaned);
 
+      const photoAnalysisSearchParams = buildMarketResearchNormalizedSearchParamsFallback(parsed);
+      photoAnalysisMarketSearchParamsRef.current = mergeMarketResearchNormalizedSearchParams(
+        photoAnalysisMarketSearchParamsRef.current,
+        photoAnalysisSearchParams
+      );
+
       setForm((prev) => ({
         ...prev,
         brand: parsed.brand || prev.brand,
@@ -1659,6 +1748,9 @@ const runMarketResearch = async () => {
         condition: parsed.condition || prev.condition,
         conditionNote: parsed.conditionNote || prev.conditionNote,
       }));
+      setMarketResearchSummary((prev) =>
+        buildMarketResearchSummaryWithNormalizedFallback(prev, photoAnalysisSearchParams)
+      );
     } catch (err) {
       const message = err instanceof Error ? err.message : "unknown_error";
       setResult("写真の自動認識に失敗しました: " + message);
