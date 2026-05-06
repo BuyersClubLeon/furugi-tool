@@ -1990,7 +1990,7 @@ ${images.length > 0
                       {formatCompletedMarketResearchSummary(marketResearchSummary?.summaryText)}
                     </div>
                     <div style={{ marginTop: 12 }}>
-                      {marketResearchReflectPreview ? (
+                      {canApplyMarketResearchToProduct && marketResearchReflectPreview ? (
                         <div
                           style={{
                             marginBottom: 6,
