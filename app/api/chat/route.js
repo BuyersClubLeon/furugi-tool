@@ -72,6 +72,14 @@ function includesAnyText(text, words) {
   return words.some((word) => lowerText.includes(word.toLowerCase()));
 }
 
+function cleanListingIntro(text) {
+  return text
+    .replace(/^写真を確認しました。[\s\S]*?商品説明文を作成いたします。\s*/m, "")
+    .replace(/^写真で確認しました。[\s\S]*?商品説明文を作成いたします。\s*/m, "")
+    .replace(/^.*商品説明文を作成いたします。\s*/m, "")
+    .replace(/^\*\*([^\n*]+)\*\*\s*$/m, "$1");
+}
+
 function cleanUnresolvedConditionBlock(text) {
   return text
     .replace(
@@ -91,6 +99,7 @@ function cleanUnresolvedConditionBlock(text) {
 function cleanDanglingFragments(text) {
   return text
     .replace(/^●\s*$/gm, "")
+    .replace(/^●[^。\n]*[、,]\s*$/gm, "")
     .replace(/^●\s*(?:の|が|を|に|で|と|も|は|や|など|として|という)[^\n]*$/gm, "")
     .replace(/^●[^\n]{0,80}(?:で|が|を|に|と|も|は|や|など|として|という)\s*$/gm, "")
     .replace(/です。(?:の表記が|という表記も)[^。\n]*。/g, "です。")
@@ -124,6 +133,12 @@ function cleanUnconfirmedDetails(text, requestText) {
       .replace(/The thick fabric construction makes it versatile for layering\./g, "The full-zip design makes it versatile for layering.");
   }
 
+  if (!includesAnyText(requestText, ["上質", "高品質", "quality"])) {
+    cleaned = cleaned
+      .replace(/ブランドらしい上質な仕上がりが魅力的。?/g, "ブランドらしい落ち着いた雰囲気が魅力です。")
+      .replace(/上質な仕上がり[^。\n]*[。]?/g, "");
+  }
+
   if (!includesAnyText(requestText, ["長く愛用", "長くご愛用", "ご愛用", "長年", "丈夫", "耐久", "long lasting", "durable"])) {
     cleaned = cleaned
       .replace(/長くご愛用いただける[^。\n]*[。]?/g, "日常のコーディネートにも取り入れやすい一枚です。")
@@ -152,7 +167,7 @@ function cleanUnconfirmedDetails(text, requestText) {
 function sanitizeListingText(text, requestText = "") {
   if (typeof text !== "string" || !text) return text;
 
-  let sanitized = text
+  let sanitized = cleanListingIntro(text)
     .replace(/(●状態⇒【([SABCD])】\n)［\2］/g, "$1")
     .replace(/^●サイズ：\s*(?:___|＿+|未入力|-)?\s*$/gm, "●サイズ：不明")
     .replace(/You can purchase immediately\./g, "Immediate purchase is welcome.")
