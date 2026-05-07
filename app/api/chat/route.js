@@ -90,8 +90,9 @@ function cleanUnresolvedConditionBlock(text) {
 
 function cleanDanglingFragments(text) {
   return text
+    .replace(/^●\s*$/gm, "")
     .replace(/^●\s*(?:の|が|を|に|で|と|も|は|や|など|として|という)[^\n]*$/gm, "")
-    .replace(/^●[^\n]{0,45}(?:で|が|を|に|と|も|は|や|など|として|という)\s*$/gm, "")
+    .replace(/^●[^\n]{0,80}(?:で|が|を|に|と|も|は|や|など|として|という)\s*$/gm, "")
     .replace(/です。(?:の表記が|という表記も)[^。\n]*。/g, "です。")
     .replace(/[^。\n]*品質への信頼感[^。\n]*。/g, "")
     .replace(/[^。\n]*品質の良さ[^。\n]*。/g, "")
@@ -123,8 +124,9 @@ function cleanUnconfirmedDetails(text, requestText) {
       .replace(/The thick fabric construction makes it versatile for layering\./g, "The full-zip design makes it versatile for layering.");
   }
 
-  if (!includesAnyText(requestText, ["長く愛用", "長年", "丈夫", "耐久", "long lasting", "durable"])) {
+  if (!includesAnyText(requestText, ["長く愛用", "長くご愛用", "ご愛用", "長年", "丈夫", "耐久", "long lasting", "durable"])) {
     cleaned = cleaned
+      .replace(/長くご愛用いただける[^。\n]*[。]?/g, "日常のコーディネートにも取り入れやすい一枚です。")
       .replace(/長く愛用いただけ、?/g, "日常のコーディネートにも取り入れやすく、")
       .replace(/長く愛用できる[^。\n]*[。]?/g, "")
       .replace(/長年愛用できる[^。\n]*[。]?/g, "");
