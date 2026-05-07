@@ -72,38 +72,80 @@ function includesAnyText(text, words) {
   return words.some((word) => lowerText.includes(word.toLowerCase()));
 }
 
-function sanitizeListingText(text, requestText = "") {
-  if (typeof text !== "string" || !text) return text;
+function cleanUnresolvedConditionBlock(text) {
+  return text
+    .replace(
+      /^●状態⇒【(?:\s*|___|＿+|ランク記号未確定|状態未確定|未確定|未選択)】\n［S］未使用・デッドストック\n［A］目立つ傷汚れなし・良好\n［B］多少の使用感、小さな汚れあり（着用に問題なし）\n［C］使用感や部分的なダメージあり（古着慣れ向け）\n［D］全体的に大きめのダメージあり/gm,
+      "●状態⇒【A】\n写真で確認できる範囲では、目立つ傷汚れは確認できません。"
+    )
+    .replace(
+      /^●状態⇒【(?:\s*|___|＿+|ランク記号未確定|状態未確定|未確定|未選択)】\n写真でご確認いただき、ご判断ください。/gm,
+      "●状態⇒【A】\n写真で確認できる範囲では、目立つ傷汚れは確認できません。"
+    )
+    .replace(
+      /^●状態⇒【(?:\s*|___|＿+|ランク記号未確定|状態未確定|未確定|未選択)】\s*$/gm,
+      "●状態⇒【A】\n写真で確認できる範囲では、目立つ傷汚れは確認できません。"
+    );
+}
 
-  let sanitized = text
-    .replace(/(●状態⇒【([SABCD])】\n)［\2］/g, "$1")
-    .replace(/^●状態⇒【(?:___|＿+|ランク記号未確定|状態未確定|未確定|未選択)】\n［S］未使用・デッドストック\n［A］目立つ傷汚れなし・良好\n［B］多少の使用感、小さな汚れあり（着用に問題なし）\n［C］使用感や部分的なダメージあり（古着慣れ向け）\n［D］全体的に大きめのダメージあり/gm, "●状態⇒【A】\n写真で確認できる範囲では、目立つ傷汚れは確認できません。")
-    .replace(/^●状態⇒【\s*】\n写真でご確認いただき、ご判断ください。/gm, "●状態⇒【A】\n写真で確認できる範囲では、目立つ傷汚れは確認できません。")
-    .replace(/^●サイズ：\s*(?:___|＿+|未入力|-)?\s*$/gm, "●サイズ：不明")
-    .replace(/^●\s*の[^\n]*$/gm, "")
-    .replace(/です。という表記も確認でき、品質への信頼感があります。/g, "です。")
+function cleanDanglingFragments(text) {
+  return text
+    .replace(/^●\s*(?:の|が|を|に|で|と|も|は|や|など|として|という)[^\n]*$/gm, "")
+    .replace(/です。(?:の表記が|という表記も)[^。\n]*。/g, "です。")
+    .replace(/[^。\n]*品質への信頼感[^。\n]*。/g, "")
+    .replace(/[^。\n]*品質の良さ[^。\n]*。/g, "")
     .replace(/\s+as shown on the label\./gi, "")
     .replace(/\.\s+with quality construction and full zip design for easy layering\./gi, ". Full zip design makes it easy to layer.")
-    .replace(/You can purchase immediately\./g, "Immediate purchase is welcome.")
-    .replace(/[^。.!?\n]*(?:Please rest assured that this item is authentic|authenticity|authentic|legit|100%\s*authentic)[^。.!?\n]*[。.!?]?/gi, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .replace(/\s+with quality construction and full zip design for easy layering\./gi, " Full zip design makes it easy to layer.")
+    .replace(/\s+with quality construction[^.]*\./gi, "")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+function cleanUnconfirmedDetails(text, requestText) {
+  let cleaned = text;
 
   if (!includesAnyText(requestText, ["カナダ製", "canada", "made in canada"])) {
-    sanitized = sanitized
+    cleaned = cleaned
       .replace(/[ 　]*カナダ製/g, "")
       .replace(/[ ,、]*Made in Canada/gi, "");
   }
 
   if (!includesAnyText(requestText, ["厚手", "肉厚", "heavyweight", "thick fabric"])) {
-    sanitized = sanitized
+    cleaned = cleaned
       .replace(/厚手の生地感でしっかりとした作りになっており、?/g, "")
       .replace(/厚手の生地感でしっかりとした作りです。?/g, "")
       .replace(/The thick fabric construction and full-zip design make it versatile for layering\./g, "The full-zip design makes it versatile for layering.")
       .replace(/The thick fabric construction makes it versatile for layering\./g, "The full-zip design makes it versatile for layering.");
   }
 
-  return sanitized.replace(/\n{3,}/g, "\n\n").trim();
+  if (!includesAnyText(requestText, ["希少", "レア", "rare"])) {
+    cleaned = cleaned
+      .replace(/希少な一着[、。]?/g, "")
+      .replace(/希少性の高い一着[、。]?/g, "");
+  }
+
+  return cleaned;
+}
+
+function sanitizeListingText(text, requestText = "") {
+  if (typeof text !== "string" || !text) return text;
+
+  let sanitized = text
+    .replace(/(●状態⇒【([SABCD])】\n)［\2］/g, "$1")
+    .replace(/^●サイズ：\s*(?:___|＿+|未入力|-)?\s*$/gm, "●サイズ：不明")
+    .replace(/You can purchase immediately\./g, "Immediate purchase is welcome.")
+    .replace(/[^。.!?\n]*(?:Please rest assured that this item is authentic|authenticity|authentic|legit|100%\s*authentic)[^。.!?\n]*[。.!?]?/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  sanitized = cleanUnresolvedConditionBlock(sanitized);
+  sanitized = cleanDanglingFragments(sanitized);
+  sanitized = cleanUnconfirmedDetails(sanitized, requestText);
+
+  return sanitized
+    .replace(/[ 　]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function sanitizeListingResponse(parsed, system, messages) {
