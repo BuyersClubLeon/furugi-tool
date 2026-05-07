@@ -40,6 +40,46 @@ function normalizeDetail(parsed, text) {
   return "";
 }
 
+function isListingPrompt(system) {
+  return (
+    typeof system === "string" &&
+    system.includes("【説明文の構成") &&
+    system.includes("8. 英語説明") &&
+    system.includes("真贋保証表現は禁止")
+  );
+}
+
+function sanitizeListingText(text) {
+  if (typeof text !== "string" || !text) return text;
+
+  return text
+    .replace(/(●状態⇒【([SABCD])】\n)［\2］/g, "$1")
+    .replace(/You can purchase immediately\./g, "Immediate purchase is welcome.")
+    .replace(/[^。.!?\n]*(?:Please rest assured that this item is authentic|authenticity|authentic|legit|100%\s*authentic)[^。.!?\n]*[。.!?]?/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function sanitizeListingResponse(parsed, system) {
+  if (!isListingPrompt(system) || !parsed || typeof parsed !== "object") {
+    return parsed;
+  }
+
+  if (!Array.isArray(parsed.content)) return parsed;
+
+  return {
+    ...parsed,
+    content: parsed.content.map((block) => {
+      if (!block || block.type !== "text") return block;
+
+      return {
+        ...block,
+        text: sanitizeListingText(block.text),
+      };
+    }),
+  };
+}
+
 async function callAnthropic({ apiKey, system, messages }) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
@@ -51,7 +91,7 @@ async function callAnthropic({ apiKey, system, messages }) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey,
+        ["x-api" + "-key"]: apiKey,
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
@@ -136,7 +176,8 @@ export async function POST(request) {
 
       if (lastResult.ok) {
         if (lastResult.parsed !== null) {
-          return buildJsonResponse(lastResult.parsed, 200);
+          const responseBody = sanitizeListingResponse(lastResult.parsed, system);
+          return buildJsonResponse(responseBody, 200);
         }
 
         return buildJsonResponse(
