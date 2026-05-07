@@ -246,7 +246,8 @@ const LISTING_PROMPT = `${SYSTEM_BASE}
 ・不自然に長くしない
 ・必要に応じて以下を自然に含める:
 You can purchase immediately.
-Please rest assured that this item is authentic.
+Please check the photos carefully before purchasing.
+If you have any questions, feel free to contact us.
 
 【禁止事項 — 厳守】
 ・入力にない素材を断定しない
@@ -257,7 +258,10 @@ Please rest assured that this item is authentic.
 ・専門用語を使いすぎない
 ・本文を長くしすぎない
 ・【現時点の商品説明用ベース情報】を、そのまま丸写しするだけの出力は禁止
-・ベース情報を優先しすぎて、今回の個別入力情報とズレた内容にしない`;
+・ベース情報を優先しすぎて、今回の個別入力情報とズレた内容にしない
+・真贋判定をしていない商品について「本物です」「正規品です」「authentic」「genuine」など真贋を保証する表現は禁止
+・英語説明でも authenticity / authentic / genuine / legit などの真贋保証表現は禁止
+・写真や入力情報からブランド名を説明するのはOK。ただし本物保証はしない`;
 
 const ANALYSIS_PROMPT = `${SYSTEM_BASE}
 対象アイテムの詳細な商品分析を行ってください。
