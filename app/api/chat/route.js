@@ -49,24 +49,65 @@ function isListingPrompt(system) {
   );
 }
 
-function sanitizeListingText(text) {
+function collectMessageText(messages) {
+  if (!Array.isArray(messages)) return "";
+
+  return messages
+    .map((message) => {
+      if (typeof message?.content === "string") return message.content;
+      if (!Array.isArray(message?.content)) return "";
+
+      return message.content
+        .map((block) => (block?.type === "text" ? block.text || "" : ""))
+        .filter(Boolean)
+        .join("\n");
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function includesAnyText(text, words) {
+  if (typeof text !== "string") return false;
+  const lowerText = text.toLowerCase();
+  return words.some((word) => lowerText.includes(word.toLowerCase()));
+}
+
+function sanitizeListingText(text, requestText = "") {
   if (typeof text !== "string" || !text) return text;
 
-  return text
+  let sanitized = text
     .replace(/(●状態⇒【([SABCD])】\n)［\2］/g, "$1")
     .replace(/^●サイズ：\s*(?:___|＿+|未入力|-)?\s*$/gm, "●サイズ：不明")
     .replace(/You can purchase immediately\./g, "Immediate purchase is welcome.")
     .replace(/[^。.!?\n]*(?:Please rest assured that this item is authentic|authenticity|authentic|legit|100%\s*authentic)[^。.!?\n]*[。.!?]?/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  if (!includesAnyText(requestText, ["カナダ製", "canada", "made in canada"])) {
+    sanitized = sanitized
+      .replace(/[ 　]*カナダ製/g, "")
+      .replace(/[ ,、]*Made in Canada/gi, "");
+  }
+
+  if (!includesAnyText(requestText, ["厚手", "肉厚", "heavyweight", "thick fabric"])) {
+    sanitized = sanitized
+      .replace(/厚手の生地感でしっかりとした作りになっており、?/g, "")
+      .replace(/厚手の生地感でしっかりとした作りです。?/g, "")
+      .replace(/The thick fabric construction and full-zip design make it versatile for layering\./g, "The full-zip design makes it versatile for layering.")
+      .replace(/The thick fabric construction makes it versatile for layering\./g, "The full-zip design makes it versatile for layering.");
+  }
+
+  return sanitized.replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function sanitizeListingResponse(parsed, system) {
+function sanitizeListingResponse(parsed, system, messages) {
   if (!isListingPrompt(system) || !parsed || typeof parsed !== "object") {
     return parsed;
   }
 
   if (!Array.isArray(parsed.content)) return parsed;
+
+  const requestText = collectMessageText(messages);
 
   return {
     ...parsed,
@@ -75,7 +116,7 @@ function sanitizeListingResponse(parsed, system) {
 
       return {
         ...block,
-        text: sanitizeListingText(block.text),
+        text: sanitizeListingText(block.text, requestText),
       };
     }),
   };
@@ -177,7 +218,7 @@ export async function POST(request) {
 
       if (lastResult.ok) {
         if (lastResult.parsed !== null) {
-          const responseBody = sanitizeListingResponse(lastResult.parsed, system);
+          const responseBody = sanitizeListingResponse(lastResult.parsed, system, messages);
           return buildJsonResponse(responseBody, 200);
         }
 
