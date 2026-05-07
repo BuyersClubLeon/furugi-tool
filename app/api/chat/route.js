@@ -91,6 +91,7 @@ function cleanUnresolvedConditionBlock(text) {
 function cleanDanglingFragments(text) {
   return text
     .replace(/^●\s*(?:の|が|を|に|で|と|も|は|や|など|として|という)[^\n]*$/gm, "")
+    .replace(/^●[^\n]{0,45}(?:で|が|を|に|と|も|は|や|など|として|という)\s*$/gm, "")
     .replace(/です。(?:の表記が|という表記も)[^。\n]*。/g, "です。")
     .replace(/[^。\n]*品質への信頼感[^。\n]*。/g, "")
     .replace(/[^。\n]*品質の良さ[^。\n]*。/g, "")
@@ -127,6 +128,14 @@ function cleanUnconfirmedDetails(text, requestText) {
       .replace(/長く愛用いただけ、?/g, "日常のコーディネートにも取り入れやすく、")
       .replace(/長く愛用できる[^。\n]*[。]?/g, "")
       .replace(/長年愛用できる[^。\n]*[。]?/g, "");
+  }
+
+  if (!includesAnyText(requestText, ["毛玉", "毛羽立ち", "毛羽", "pilling", "fuzz"] )) {
+    cleaned = cleaned
+      .replace(/全体的に使用感があり、毛玉や毛羽立ちが見られます。?/g, "ニット素材特有の使用感は写真にてご確認ください。")
+      .replace(/毛玉や毛羽立ちが見られます。?/g, "ニット素材特有の使用感は写真にてご確認ください。")
+      .replace(/毛玉[^。\n]*。/g, "ニット素材特有の使用感は写真にてご確認ください。")
+      .replace(/毛羽立ち[^。\n]*。/g, "ニット素材特有の使用感は写真にてご確認ください。");
   }
 
   if (!includesAnyText(requestText, ["希少", "レア", "rare"])) {
