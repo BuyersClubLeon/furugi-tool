@@ -77,6 +77,7 @@ function sanitizeListingText(text, requestText = "") {
 
   let sanitized = text
     .replace(/(●状態⇒【([SABCD])】\n)［\2］/g, "$1")
+    .replace(/^●状態⇒【(?:___|＿+|ランク記号未確定|状態未確定|未確定|未選択)】\n［S］未使用・デッドストック\n［A］目立つ傷汚れなし・良好\n［B］多少の使用感、小さな汚れあり（着用に問題なし）\n［C］使用感や部分的なダメージあり（古着慣れ向け）\n［D］全体的に大きめのダメージあり/gm, "●状態⇒【A】\n写真で確認できる範囲では、目立つ傷汚れは確認できません。")
     .replace(/^●サイズ：\s*(?:___|＿+|未入力|-)?\s*$/gm, "●サイズ：不明")
     .replace(/You can purchase immediately\./g, "Immediate purchase is welcome.")
     .replace(/[^。.!?\n]*(?:Please rest assured that this item is authentic|authenticity|authentic|legit|100%\s*authentic)[^。.!?\n]*[。.!?]?/gi, "")
