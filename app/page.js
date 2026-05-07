@@ -830,8 +830,8 @@ const T = {
 
 /* ── ナビゲーション定義 ── */
 const NAV = [
-  { id: "listing", icon: FileText, label: "出品文章生成", desc: "タイトル・説明文の自動生成" },
-  { id: "analysis", icon: TrendingUp, label: "商品分析", desc: "市場分析・価格査定" },
+  { id: "listing", icon: FileText, label: "出品文作成", desc: "商品情報から説明文を作成" },
+  { id: "analysis", icon: TrendingUp, label: "商品メモ", desc: "特徴や販売準備の整理" },
   { id: "profit", icon: Calculator, label: "利益計算", desc: "仕入れ価格から利益算出" },
   { id: "auth", icon: Shield, label: "真贋判定", desc: "真贋チェックポイント分析" },
   { id: "reply", icon: MessageCircle, label: "メルカリ返答", desc: "質問対応の返答文生成" },
@@ -2156,7 +2156,15 @@ ${images.length > 0
 
             {["listing", "analysis", "auth"].includes(page) && (
               <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
-                <div style={cardTitleStyle}><Camera size={15} /> 商品写真</div>
+                <div style={cardTitleStyle}>
+                  <Camera size={15} /> {page === "listing" ? "1. 商品写真" : "商品写真"}
+                </div>
+                {page === "listing" ? (
+                  <div style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.7, marginBottom: 12 }}>
+                    全体・タグ・サイズ表記などを追加すると、商品情報の入力補助に使えます。
+                    写真だけで分からない内容は手入力してください。
+                  </div>
+                ) : null}
                 <ImageUploader images={images} setImages={setImages} isMobile={isMobile} />
 
                 {page === "listing" && images.length > 0 && (
@@ -2175,7 +2183,7 @@ ${images.length > 0
                     {analyzing
                       ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
                       : <Sparkles size={15} />}
-                    {analyzing ? "写真を分析中..." : "写真から自動入力"}
+                    {analyzing ? "写真を確認中..." : "写真から商品情報を入力"}
                   </button>
                 )}
               </div>
@@ -2203,7 +2211,10 @@ ${images.length > 0
                 ) : String(marketResearchSummary?.status || "").trim() === "completed_market_research" ? (
                   <div style={{ fontSize: 13, lineHeight: 1.7, color: T.text }}>
                     <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                      市場調査が完了しました
+                      参考情報を取得しました
+                    </div>
+                    <div style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.7, marginBottom: 10 }}>
+                      取得できた商品情報のみを表示しています。採寸や不足項目は、必要に応じて手入力してください。
                     </div>
                     <div style={{ whiteSpace: "pre-line" }}>
                       {formatCompletedMarketResearchSummary(marketResearchSummary)}
@@ -2284,7 +2295,7 @@ ${images.length > 0
             {page === "listing" && (
               <>
                 <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
-                  <div style={cardTitleStyle}><Package size={15} /> 商品情報</div>
+                  <div style={cardTitleStyle}><Package size={15} /> 2. 商品情報を確認</div>
 
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                     <FieldGroup label="ブランド名">
@@ -2342,7 +2353,7 @@ ${images.length > 0
                     </FieldGroup>
                   </div>
 
-                  <FieldGroup label="特徴・ディテール">
+                  <FieldGroup label="特徴・ディテール（箇条書きメモでもOK）">
                     <input
                       style={inputStyle}
                       placeholder="例: フルジップ、裏地あり"
@@ -2351,8 +2362,11 @@ ${images.length > 0
                     />
                   </FieldGroup>
 
-                  <div style={{ ...cardTitleStyle, marginTop: 20, marginBottom: 12 }}>
-                    実寸（㎝）— 未計測は空欄のままでOK
+                  <div style={{ ...cardTitleStyle, marginTop: 22, marginBottom: 8 }}>
+                    3. 実寸を入力（㎝）
+                  </div>
+                  <div style={{ fontSize: 12, color: T.textMuted, marginBottom: 12 }}>
+                    未計測の項目は空欄のままで生成できます。
                   </div>
 
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 1fr 1fr 1fr", gap: 12 }}>
@@ -2370,8 +2384,8 @@ ${images.length > 0
                           lineHeight: 1.6,
                         }}
                       >
-                        <div>市場調査では採寸数値を取得できませんでした。</div>
-                        <div>着丈・身幅・肩幅・袖丈を手入力してください。</div>
+                        <div>採寸数値は自動取得されていません。</div>
+                        <div>分かる範囲で、着丈・身幅・肩幅・袖丈を手入力してください。</div>
                       </div>
                     ) : null}
                     <FieldGroup label="着丈">
@@ -2434,17 +2448,17 @@ ${images.length > 0
                     </FieldGroup>
                   </div>
 
-                  <FieldGroup label="ベース情報（既存の説明文があれば貼り付け — 丸写しせず自然に反映されます）">
+                  <FieldGroup label="任意メモ（既存の説明文・補足があれば貼り付け）">
                     <textarea
                       style={textareaStyle}
-                      placeholder="既存の商品説明文やメモがあればここに…"
+                      placeholder="既存の商品説明文や販売メモがあればここに…"
                       value={form.baseInfo}
                       onChange={(e) => u("baseInfo", e.target.value)}
                     />
                   </FieldGroup>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12, marginBottom: 20 }}>
+                <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: 12, marginBottom: 20, marginTop: 4 }}>
                   <button
                     style={{ ...btnStyle("primary"), width: isMobile ? "100%" : "auto", justifyContent: "center" }}
                     onClick={() => generate("listing")}
@@ -2453,7 +2467,7 @@ ${images.length > 0
                     {loading
                       ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
                       : <Sparkles size={15} />}
-                    {loading ? "生成中..." : "出品文章を生成"}
+                    {loading ? "作成中..." : "4. 出品文を作成"}
                   </button>
 
                   <button
@@ -2470,7 +2484,7 @@ ${images.length > 0
             {page === "analysis" && (
               <>
                 <div style={{ ...cardStyle, padding: isMobile ? 16 : 24 }}>
-                  <div style={cardTitleStyle}><TrendingUp size={15} /> アイテム情報</div>
+                  <div style={cardTitleStyle}><TrendingUp size={15} /> 商品メモ</div>
 
                   <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
                     <FieldGroup label="ブランド名">
@@ -2512,7 +2526,7 @@ ${images.length > 0
                   {loading
                     ? <Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} />
                     : <TrendingUp size={15} />}
-                  {loading ? "分析中..." : "商品を分析"}
+                  {loading ? "作成中..." : "商品メモを作成"}
                 </button>
 
                 <button
@@ -3634,7 +3648,7 @@ const replyQuestionPreview = getResultPreviewText(
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                   <div style={cardTitleStyle}>
                     <Sparkles size={15} />
-                    {loading ? "AIが生成中です..." : hasResultError ? "エラー" : "生成結果"}
+                    {loading ? "作成中です..." : hasResultError ? "エラー" : "作成結果"}
                   </div>
                   {result && <CopyButton text={result} />}
                 </div>
@@ -3643,7 +3657,7 @@ const replyQuestionPreview = getResultPreviewText(
                   <div style={{ textAlign: "center", padding: isMobile ? 24 : 40 }}>
                     <Loader2 size={28} color={T.accent} style={{ animation: "spin 1s linear infinite" }} />
                     <div style={{ fontSize: 13, color: T.textMuted, marginTop: 14 }}>
-                      分析・生成しています…
+                      作成しています…
                     </div>
                   </div>
                 ) : (
@@ -3691,7 +3705,7 @@ const replyQuestionPreview = getResultPreviewText(
                     </div>
 
                     <div style={{ marginBottom: 12, fontSize: 12, color: T.textDim }}>
-                      生成結果が良かったか、修正したい点があれば記録できます。
+                      作成結果が良かったか、修正したい点があれば記録できます。
                     </div>
 
                     <FieldGroup label="評価">
