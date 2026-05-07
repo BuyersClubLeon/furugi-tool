@@ -396,12 +396,32 @@ const MARKET_RESEARCH_REFLECT_FIELDS = [
   {
     targetKey: "condition",
     label: "状態",
-    jsonKeys: ["condition", "状態"],
-    textLabels: ["状態"],
+    jsonKeys: ["condition", "conditionRank", "condition_rank", "状態", "状態ランク"],
+    textLabels: ["状態ランク", "状態"],
   },
 ];
 
 const MARKET_RESEARCH_EMPTY_VALUES = new Set(["", "不明", "未取得", "-"]);
+const MARKET_RESEARCH_CONDITION_VALUES = new Set(["S", "A", "B", "C", "D"]);
+
+function normalizeMarketResearchConditionValue(value) {
+  const valueText = normalizeMarketResearchReflectValue(value)
+    .replace(/[ＳＡＢＣＤ]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
+    .toUpperCase();
+
+  if (MARKET_RESEARCH_CONDITION_VALUES.has(valueText)) return valueText;
+
+  const conditionMatch = valueText.match(/(?:^|[^A-Z0-9])([SABCD])(?:$|[^A-Z0-9])/);
+  return conditionMatch?.[1] || "";
+}
+
+function normalizeMarketResearchFieldValue(field, value) {
+  if (field.targetKey === "condition") {
+    return normalizeMarketResearchConditionValue(value);
+  }
+
+  return normalizeMarketResearchReflectValue(value);
+}
 
 function normalizeMarketResearchReflectValue(value) {
   if (value === null || value === undefined) return "";
@@ -415,7 +435,7 @@ function buildMarketResearchNormalizedSearchParamsFallback(values = {}) {
   const fallback = {};
 
   MARKET_RESEARCH_REFLECT_FIELDS.forEach((field) => {
-    const value = normalizeMarketResearchReflectValue(values[field.targetKey]);
+    const value = normalizeMarketResearchFieldValue(field, values[field.targetKey]);
     if (value) fallback[field.targetKey] = value;
   });
 
@@ -429,7 +449,7 @@ function mergeMarketResearchNormalizedSearchParams(primary, fallback) {
 
   MARKET_RESEARCH_REFLECT_FIELDS.forEach((field) => {
     const existingValue = findMarketResearchJsonValue(primaryParams, field.jsonKeys);
-    const fallbackValue = normalizeMarketResearchReflectValue(fallbackParams[field.targetKey]);
+    const fallbackValue = normalizeMarketResearchFieldValue(field, fallbackParams[field.targetKey]);
 
     if (!existingValue && fallbackValue) {
       merged[field.targetKey] = fallbackValue;
@@ -634,7 +654,7 @@ function buildMarketResearchReflectSource(source, form = {}) {
       (foundValue, textSource) => foundValue || findMarketResearchTextValue(textSource, field.textLabels),
       ""
     );
-    const sourceValue = jsonValue || textValue;
+    const sourceValue = normalizeMarketResearchFieldValue(field, jsonValue || textValue);
 
     if (!sourceValue) return;
 
