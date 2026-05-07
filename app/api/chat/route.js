@@ -110,12 +110,23 @@ function cleanUnconfirmedDetails(text, requestText) {
       .replace(/[ ,、]*Made in Canada/gi, "");
   }
 
-  if (!includesAnyText(requestText, ["厚手", "肉厚", "heavyweight", "thick fabric"])) {
+  if (!includesAnyText(requestText, ["厚手", "肉厚", "程よい厚み", "しっかりとした生地", "生地感", "heavyweight", "thick fabric"])) {
     cleaned = cleaned
+      .replace(/程よい厚みで着回しやすく、?/g, "羽織りとして使いやすく、")
+      .replace(/程よい厚みで[^。\n]*[。]?/g, "")
+      .replace(/しっかりとした生地感で長く愛用いただけ、?/g, "落ち着いた雰囲気で日常のコーディネートにも取り入れやすく、")
+      .replace(/しっかりとした生地感で[^。\n]*[。]?/g, "")
       .replace(/厚手の生地感でしっかりとした作りになっており、?/g, "")
       .replace(/厚手の生地感でしっかりとした作りです。?/g, "")
       .replace(/The thick fabric construction and full-zip design make it versatile for layering\./g, "The full-zip design makes it versatile for layering.")
       .replace(/The thick fabric construction makes it versatile for layering\./g, "The full-zip design makes it versatile for layering.");
+  }
+
+  if (!includesAnyText(requestText, ["長く愛用", "長年", "丈夫", "耐久", "long lasting", "durable"])) {
+    cleaned = cleaned
+      .replace(/長く愛用いただけ、?/g, "日常のコーディネートにも取り入れやすく、")
+      .replace(/長く愛用できる[^。\n]*[。]?/g, "")
+      .replace(/長年愛用できる[^。\n]*[。]?/g, "");
   }
 
   if (!includesAnyText(requestText, ["希少", "レア", "rare"])) {
