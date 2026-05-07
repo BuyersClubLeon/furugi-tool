@@ -54,6 +54,7 @@ function sanitizeListingText(text) {
 
   return text
     .replace(/(●状態⇒【([SABCD])】\n)［\2］/g, "$1")
+    .replace(/^●サイズ：\s*(?:___|＿+|未入力|-)?\s*$/gm, "●サイズ：不明")
     .replace(/You can purchase immediately\./g, "Immediate purchase is welcome.")
     .replace(/[^。.!?\n]*(?:Please rest assured that this item is authentic|authenticity|authentic|legit|100%\s*authentic)[^。.!?\n]*[。.!?]?/gi, "")
     .replace(/\n{3,}/g, "\n\n")
